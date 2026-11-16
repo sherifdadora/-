@@ -77,6 +77,7 @@ import com.example.ui.theme.EduSuccessContainer
 import com.example.ui.theme.EduSuccessGreen
 import com.example.ui.theme.EduTealPrimary
 import com.example.ui.theme.EduWarningAmber
+import com.example.ui.theme.eduWhatsAppTextColor
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.NotificationsActive
@@ -253,7 +254,10 @@ fun StudentProfileScreen(
                                     )
                                     WhatsAppHelper.openWhatsAppChat(context, student.parentPhone, msg)
                                 },
-                                colors = ButtonDefaults.buttonColors(containerColor = EduTealPrimary),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                ),
                                 shape = RoundedCornerShape(8.dp),
                                 modifier = Modifier.weight(1f)
                             ) {
@@ -273,7 +277,7 @@ fun StudentProfileScreen(
                     ) {
                         Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color(0xFF25D366))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("تنسيق وإرسال رسالة واتساب جاهزة", color = Color(0xFF075E54), fontWeight = FontWeight.Bold)
+                        Text("تنسيق وإرسال رسالة واتساب جاهزة", color = eduWhatsAppTextColor(), fontWeight = FontWeight.Bold)
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -319,7 +323,7 @@ fun StudentProfileScreen(
                     )
                     Spacer(modifier = Modifier.height(6.dp))
 
-                    val academicMonths = listOf("أكتوبر", "نوفمبر", "ديسمبر", "يناير", "فبراير", "مارس", "أبريل", "مايو")
+                    val academicMonths = PaymentInputHelper.academicOrderMonths
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -373,8 +377,7 @@ fun StudentProfileScreen(
                         }
                     }
 
-                    if (monthToCancel != null) {
-                        val mName = monthToCancel!!
+                    monthToCancel?.let { mName ->
                         AlertDialog(
                             onDismissRequest = { monthToCancel = null },
                             title = { Text("تحديث حالة شهر $mName", fontWeight = FontWeight.Bold) },

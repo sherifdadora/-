@@ -31,14 +31,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.ScreenDestination
-import com.example.ui.theme.EduSuccessGreen
-import com.example.ui.theme.EduTealPrimary
-import com.example.ui.theme.EduWarningAmber
+import com.example.ui.theme.eduSuccessContentColor
+import com.example.ui.theme.eduWarningContentColor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,16 +54,12 @@ fun AppTopBar(
     onToggleDarkMode: () -> Unit,
     onSyncClick: () -> Unit
 ) {
-    val showBack = currentScreen in listOf(
-        ScreenDestination.STUDENT_PROFILE,
-        ScreenDestination.GROUP_DETAIL,
-        ScreenDestination.STATEMENT
-    )
+    val showBack = currentScreen != ScreenDestination.DASHBOARD
 
     val dotColor = when {
-        pendingSyncCount > 0 -> EduWarningAmber
-        isOnline -> EduSuccessGreen
-        else -> EduTealPrimary
+        pendingSyncCount > 0 -> eduWarningContentColor()
+        isOnline -> eduSuccessContentColor()
+        else -> MaterialTheme.colorScheme.primary
     }
     val badgeLabel = when {
         pendingSyncCount > 0 -> "معلق ($pendingSyncCount)"
@@ -80,11 +76,14 @@ fun AppTopBar(
         ),
         navigationIcon = {
             if (showBack) {
-                IconButton(onClick = onBackClick) {
+                IconButton(
+                    onClick = onBackClick,
+                    modifier = Modifier.testTag("top_bar_back_button")
+                ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "رجوع",
-                        modifier = Modifier.size(32.dp)
+                        contentDescription = "العودة للقائمة السابقة",
+                        modifier = Modifier.size(34.dp)
                     )
                 }
             } else {
@@ -92,7 +91,7 @@ fun AppTopBar(
                     Icon(
                         imageVector = Icons.Default.Menu,
                         contentDescription = "القائمة الرئيسية",
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(34.dp)
                     )
                 }
             }
@@ -121,8 +120,7 @@ fun AppTopBar(
                 modifier = Modifier
                     .clip(RoundedCornerShape(12.dp))
                     .clickable { onSyncClick() },
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                tonalElevation = 1.dp
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f)
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -138,7 +136,7 @@ fun AppTopBar(
                     Icon(
                         imageVector = Icons.Default.Sync,
                         contentDescription = syncStatus,
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.size(22.dp),
                         tint = MaterialTheme.colorScheme.primary
                     )
                     Spacer(modifier = Modifier.width(4.dp))
@@ -156,7 +154,7 @@ fun AppTopBar(
                 Icon(
                     imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
                     contentDescription = "تغيير المظهر",
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(32.dp)
                 )
             }
         }

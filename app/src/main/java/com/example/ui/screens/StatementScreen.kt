@@ -51,12 +51,13 @@ import com.example.data.model.GroupEntity
 import com.example.data.model.MonthlySubscriptionEntity
 import com.example.data.model.PaymentEntity
 import com.example.data.model.StudentEntity
-import com.example.ui.theme.EduErrorRed
-import com.example.ui.theme.EduSkyTertiary
-import com.example.ui.theme.EduSuccessContainer
-import com.example.ui.theme.EduSuccessGreen
-import com.example.ui.theme.EduTealPrimary
-import com.example.ui.theme.EduWarningAmber
+import com.example.ui.theme.eduErrorContainerColor
+import com.example.ui.theme.eduErrorContentColor
+import com.example.ui.theme.eduSkyContainerColor
+import com.example.ui.theme.eduSuccessContainerColor
+import com.example.ui.theme.eduSuccessContentColor
+import com.example.ui.theme.eduWarningContainerColor
+import com.example.ui.theme.eduWarningContentColor
 import com.example.util.ExportHelper
 
 @Composable
@@ -163,7 +164,7 @@ fun StatementScreen(
                                         studentName = selectedStudent.fullName,
                                         phone = selectedStudent.phone,
                                         groupName = selectedStudent.subject,
-                                        academicYear = settings?.academicYear ?: "2024 - 2025",
+                                        academicYear = settings?.academicYear.orEmpty(),
                                         totalExpected = totalExpected,
                                         totalPaid = totalPaid,
                                         totalRemaining = totalRemaining,
@@ -173,7 +174,10 @@ fun StatementScreen(
                                     ExportHelper.shareText(context, "كشف حساب الطالب ${selectedStudent.fullName}", statementText)
                                 },
                                 shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = EduTealPrimary)
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                )
                             ) {
                                 Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
@@ -202,26 +206,26 @@ fun StatementScreen(
                             }
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
-                                color = EduSuccessContainer,
+                                color = eduSuccessContainerColor(),
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Column(modifier = Modifier.padding(10.dp)) {
-                                    Text(text = "إجمالي المدفوع", fontSize = 10.sp, color = EduSuccessGreen)
-                                    Text(text = "${totalPaid.toInt()} $currency", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = EduSuccessGreen)
+                                    Text(text = "إجمالي المدفوع", fontSize = 10.sp, color = eduSuccessContentColor())
+                                    Text(text = "${totalPaid.toInt()} $currency", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = eduSuccessContentColor())
                                 }
                             }
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
-                                color = if (totalRemaining > 0) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant,
+                                color = if (totalRemaining > 0) eduErrorContainerColor() else MaterialTheme.colorScheme.surfaceVariant,
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Column(modifier = Modifier.padding(10.dp)) {
-                                    Text(text = "المبلغ المتبقي", fontSize = 10.sp, color = if (totalRemaining > 0) EduErrorRed else MaterialTheme.colorScheme.outline)
+                                    Text(text = "المبلغ المتبقي", fontSize = 10.sp, color = if (totalRemaining > 0) eduErrorContentColor() else MaterialTheme.colorScheme.outline)
                                     Text(
                                         text = "${totalRemaining.toInt()} $currency",
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (totalRemaining > 0) EduErrorRed else EduSuccessGreen
+                                        color = if (totalRemaining > 0) eduErrorContentColor() else eduSuccessContentColor()
                                     )
                                 }
                             }
@@ -270,10 +274,10 @@ fun StatementScreen(
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
                                     color = when (sub.status) {
-                                        "مدفوع بالكامل", "مدفوع" -> EduSuccessContainer
-                                        "دفع جزئي" -> EduWarningAmber.copy(alpha = 0.2f)
-                                        "معفى" -> EduSkyTertiary.copy(alpha = 0.2f)
-                                        else -> EduErrorRed.copy(alpha = 0.15f)
+                                        "مدفوع بالكامل", "مدفوع" -> eduSuccessContainerColor()
+                                        "دفع جزئي" -> eduWarningContainerColor()
+                                        "معفى" -> eduSkyContainerColor()
+                                        else -> eduErrorContainerColor()
                                     }
                                 ) {
                                     Text(
@@ -281,10 +285,10 @@ fun StatementScreen(
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = when (sub.status) {
-                                            "مدفوع بالكامل", "مدفوع" -> EduSuccessGreen
-                                            "دفع جزئي" -> EduWarningAmber
-                                            "معفى" -> EduSkyTertiary
-                                            else -> EduErrorRed
+                                            "مدفوع بالكامل", "مدفوع" -> eduSuccessContentColor()
+                                            "دفع جزئي" -> eduWarningContentColor()
+                                            "معفى" -> MaterialTheme.colorScheme.tertiary
+                                            else -> eduErrorContentColor()
                                         },
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                                     )
@@ -297,8 +301,8 @@ fun StatementScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(text = "قيمة الاشتراك: ${sub.expectedAmount.toInt()} $currency", fontSize = 11.sp)
-                                Text(text = "المدفوع: ${paid.toInt()} $currency", fontSize = 11.sp, color = EduSuccessGreen)
-                                Text(text = "المتبقي: ${remaining.toInt()} $currency", fontSize = 11.sp, color = if (remaining > 0) EduErrorRed else EduSuccessGreen, fontWeight = FontWeight.Bold)
+                                Text(text = "المدفوع: ${paid.toInt()} $currency", fontSize = 11.sp, color = eduSuccessContentColor())
+                                Text(text = "المتبقي: ${remaining.toInt()} $currency", fontSize = 11.sp, color = if (remaining > 0) eduErrorContentColor() else eduSuccessContentColor(), fontWeight = FontWeight.Bold)
                             }
 
                             // If there are payments made for this month, list them

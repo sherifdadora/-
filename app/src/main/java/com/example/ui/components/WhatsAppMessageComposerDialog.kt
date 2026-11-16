@@ -54,6 +54,7 @@ import com.example.data.model.AppSettingsEntity
 import com.example.data.model.GroupEntity
 import com.example.data.model.StudentEntity
 import com.example.ui.theme.EduTealPrimary
+import com.example.ui.theme.eduWhatsAppTextColor
 import com.example.util.WhatsAppHelper
 import com.example.util.WhatsAppMessageTemplateType
 import java.text.SimpleDateFormat
@@ -89,7 +90,7 @@ fun WhatsAppMessageComposerDialog(
     val context = LocalContext.current
     val centerName = settings?.centerName ?: "السنتر التعليمي"
     val currency = settings?.currency ?: "جنيه"
-    val todayStr = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()) }
+    val todayStr = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()) }
 
     val availableRecipients = remember(student, group) {
         buildList {
@@ -374,7 +375,7 @@ fun WhatsAppMessageComposerDialog(
                             "سيتم فتح محادثة واتساب مباشرة مع تعبئة الرسالة الجاهزة تلقائياً."
                         },
                         fontSize = 11.sp,
-                        color = Color(0xFF075E54),
+                        color = eduWhatsAppTextColor(),
                         modifier = Modifier.padding(8.dp)
                     )
                 }

@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddCard
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.filled.HowToReg
 import androidx.compose.material.icons.filled.MonetizationOn
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Security
@@ -51,7 +53,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.ScreenDestination
 import com.example.ui.theme.EduErrorRed
-import com.example.ui.theme.EduTealPrimary
 
 data class DrawerItemData(
     val destination: ScreenDestination,
@@ -71,10 +72,12 @@ fun AppDrawerContent(
     val navItems = listOf(
         DrawerItemData(ScreenDestination.DASHBOARD, Icons.Default.Dashboard),
         DrawerItemData(ScreenDestination.STUDENTS, Icons.Default.People),
+        DrawerItemData(ScreenDestination.ADD_STUDENT, Icons.Default.PersonAdd),
         DrawerItemData(ScreenDestination.GROUPS, Icons.Default.Class),
         DrawerItemData(ScreenDestination.SCHEDULE, Icons.Default.CalendarMonth),
         DrawerItemData(ScreenDestination.ATTENDANCE, Icons.Default.HowToReg),
         DrawerItemData(ScreenDestination.PAYMENTS, Icons.Default.Payments),
+        DrawerItemData(ScreenDestination.RECORD_PAYMENT, Icons.Default.AddCard),
         DrawerItemData(
             ScreenDestination.OVERDUE,
             Icons.Default.Warning,
@@ -103,16 +106,16 @@ fun AppDrawerContent(
         ) {
             Box(
                 modifier = Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(EduTealPrimary),
+                    .size(64.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.primary),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.School,
                     contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(36.dp)
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(42.dp)
                 )
             }
             Spacer(modifier = Modifier.width(12.dp))
@@ -168,7 +171,7 @@ fun AppDrawerContent(
                         imageVector = item.icon,
                         contentDescription = item.destination.title,
                         tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(30.dp)
+                        modifier = Modifier.size(34.dp)
                     )
                 },
                 selected = isSelected,

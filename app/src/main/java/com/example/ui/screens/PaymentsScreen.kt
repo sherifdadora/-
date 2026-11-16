@@ -24,6 +24,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddCard
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -34,10 +36,12 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MonetizationOn
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -72,10 +76,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.material.icons.filled.Chat
-import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import com.example.data.model.AppSettingsEntity
 import com.example.data.model.EnrollmentEntity
 import com.example.data.model.GroupEntity
@@ -87,14 +87,18 @@ import com.example.ui.components.PaymentDialog
 import com.example.ui.components.StudentPaymentSubscriptionDialog
 import com.example.ui.theme.EduErrorRed
 import com.example.ui.theme.EduSkyTertiary
-import com.example.ui.theme.EduSuccessContainer
 import com.example.ui.theme.EduSuccessGreen
 import com.example.ui.theme.EduTealPrimary
 import com.example.ui.theme.EduWarningAmber
+import com.example.ui.theme.eduErrorContainerColor
+import com.example.ui.theme.eduErrorContentColor
+import com.example.ui.theme.eduSkyContainerColor
+import com.example.ui.theme.eduSuccessContainerColor
+import com.example.ui.theme.eduSuccessContentColor
+import com.example.ui.theme.eduWarningContainerColor
+import com.example.ui.theme.eduWarningContentColor
 import com.example.util.WhatsAppHelper
-import java.text.SimpleDateFormat
 import java.util.Calendar
-import java.util.Date
 import java.util.Locale
 
 @Composable
@@ -123,7 +127,8 @@ fun PaymentsScreen(
         monthStatus: String
     ) -> Unit = { _, _, _, _, _, _, _, _, _, _, _ -> },
     onRecordExemption: (subscriptionId: String, reason: String) -> Unit,
-    onCreateMonthlySubscriptions: (monthYear: String, monthSortKey: String, academicYear: String) -> Unit
+    onCreateMonthlySubscriptions: (monthYear: String, monthSortKey: String, academicYear: String) -> Unit,
+    onOpenRecordPayment: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val currency = settings?.currency ?: "جنيه"
@@ -201,8 +206,8 @@ fun PaymentsScreen(
                             Icon(
                                 Icons.Default.MonetizationOn,
                                 contentDescription = null,
-                                tint = EduTealPrimary,
-                                modifier = Modifier.size(24.dp)
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(28.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
@@ -215,13 +220,13 @@ fun PaymentsScreen(
 
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = EduSuccessContainer
+                            color = eduSuccessContainerColor()
                         ) {
                             Text(
                                 text = "الكل: ${totalAllCollected.toInt()} $currency",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = EduSuccessGreen,
+                                color = eduSuccessContentColor(),
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                             )
                         }
@@ -404,13 +409,16 @@ fun PaymentsScreen(
                 Button(
                     onClick = { showSimplePaymentForm = true },
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = EduTealPrimary),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
                     modifier = Modifier
                         .weight(1.3f)
                         .height(48.dp)
                         .testTag("open_simple_payment_form_button")
                 ) {
-                    Icon(Icons.Default.AddCard, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.AddCard, contentDescription = null, modifier = Modifier.size(24.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("تسجيل اشتراك / دفعة", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
@@ -422,7 +430,7 @@ fun PaymentsScreen(
                         .weight(0.9f)
                         .height(48.dp)
                 ) {
-                    Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(22.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("إنشاء شهر", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
@@ -540,7 +548,7 @@ fun PaymentsScreen(
                                                 shape = RoundedCornerShape(8.dp),
                                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                                             ) {
-                                                Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                                                Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                                                 Spacer(modifier = Modifier.width(4.dp))
                                                 Text("تذكير", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
                                             }
@@ -563,11 +571,11 @@ fun PaymentsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(24.dp)) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(26.dp)) },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Default.Close, contentDescription = "مسح", modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Close, contentDescription = "مسح", modifier = Modifier.size(22.dp))
                         }
                     }
                 }
@@ -630,7 +638,7 @@ fun PaymentsScreen(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(
-                            Icons.Default.ReceiptLong,
+                            Icons.AutoMirrored.Filled.ReceiptLong,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.outline,
                             modifier = Modifier.size(48.dp)
@@ -675,10 +683,10 @@ fun PaymentsScreen(
                                     Surface(
                                         shape = RoundedCornerShape(8.dp),
                                         color = when (sub.status) {
-                                            "مدفوع بالكامل", "مدفوع" -> EduSuccessContainer
-                                            "دفع جزئي" -> EduWarningAmber.copy(alpha = 0.2f)
-                                            "معفى" -> EduSkyTertiary.copy(alpha = 0.2f)
-                                            else -> EduErrorRed.copy(alpha = 0.15f)
+                                            "مدفوع بالكامل", "مدفوع" -> eduSuccessContainerColor()
+                                            "دفع جزئي" -> eduWarningContainerColor()
+                                            "معفى" -> eduSkyContainerColor()
+                                            else -> eduErrorContainerColor()
                                         }
                                     ) {
                                         Text(
@@ -686,10 +694,10 @@ fun PaymentsScreen(
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = when (sub.status) {
-                                                "مدفوع بالكامل", "مدفوع" -> EduSuccessGreen
-                                                "دفع جزئي" -> EduWarningAmber
-                                                "معفى" -> EduSkyTertiary
-                                                else -> EduErrorRed
+                                                "مدفوع بالكامل", "مدفوع" -> eduSuccessContentColor()
+                                                "دفع جزئي" -> eduWarningContentColor()
+                                                "معفى" -> MaterialTheme.colorScheme.tertiary
+                                                else -> eduErrorContentColor()
                                             },
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                                         )
@@ -715,7 +723,7 @@ fun PaymentsScreen(
                                         }
                                         Column {
                                             Text(text = "المدفوع", fontSize = 10.sp, color = MaterialTheme.colorScheme.outline)
-                                            Text(text = "${totalPaid.toInt()} $currency", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = EduSuccessGreen)
+                                            Text(text = "${totalPaid.toInt()} $currency", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = eduSuccessContentColor())
                                         }
                                         Column {
                                             Text(text = "المتبقي", fontSize = 10.sp, color = MaterialTheme.colorScheme.outline)
@@ -723,7 +731,7 @@ fun PaymentsScreen(
                                                 text = "${remaining.toInt()} $currency",
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                color = if (remaining > 0) EduErrorRed else EduSuccessGreen
+                                                color = if (remaining > 0) eduErrorContentColor() else eduSuccessContentColor()
                                             )
                                         }
                                     }
@@ -767,7 +775,7 @@ fun PaymentsScreen(
                                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
                                                 modifier = Modifier.weight(1f)
                                             ) {
-                                                Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                                                Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                                                 Spacer(modifier = Modifier.width(4.dp))
                                                 Text("تذكير", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
                                             }
@@ -779,7 +787,7 @@ fun PaymentsScreen(
                                         shape = RoundedCornerShape(8.dp),
                                         modifier = Modifier.weight(1f)
                                     ) {
-                                        Icon(Icons.Default.ReceiptLong, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, modifier = Modifier.size(18.dp))
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text("كشف حساب", fontSize = 11.sp)
                                     }
@@ -797,16 +805,16 @@ fun PaymentsScreen(
 
         // Floating Action Button for recording student payments
         ExtendedFloatingActionButton(
-            onClick = { showSimplePaymentForm = true },
-            containerColor = EduTealPrimary,
-            contentColor = Color.White,
+            onClick = { onOpenRecordPayment() },
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(16.dp)
                 .testTag("fab_record_payment"),
             icon = {
-                Icon(Icons.Default.AddCard, contentDescription = "تسجيل دفعة طالب", modifier = Modifier.size(24.dp))
+                Icon(Icons.Default.AddCard, contentDescription = "تسجيل دفعة طالب", modifier = Modifier.size(28.dp))
             },
             text = {
                 Text("تسجيل دفعة طالب", fontWeight = FontWeight.Bold)
@@ -833,8 +841,7 @@ fun PaymentsScreen(
     }
 
     // Specific Subscription Payment Dialog
-    if (activeSubForPayment != null) {
-        val sub = activeSubForPayment!!
+    activeSubForPayment?.let { sub ->
         val student = studentMap[sub.studentId]
         val group = groupMap[sub.groupId]
         val subPayments = paymentsBySub[sub.id] ?: emptyList()
@@ -863,9 +870,29 @@ fun PaymentsScreen(
 
     // Generate Month Dialog
     if (showCreateMonthDialog) {
-        var newMonthName by remember { mutableStateOf("مارس 2025") }
-        var newMonthKey by remember { mutableStateOf("2025-03") }
-        var academicYear by remember { mutableStateOf(settings?.academicYear ?: "2024 - 2025") }
+        val cal = remember { Calendar.getInstance() }
+        val currentYear = cal.get(Calendar.YEAR)
+        val currentMonthNum = cal.get(Calendar.MONTH) + 1
+        val currentMonthArabic = when (cal.get(Calendar.MONTH)) {
+            Calendar.JANUARY -> "يناير"
+            Calendar.FEBRUARY -> "فبراير"
+            Calendar.MARCH -> "مارس"
+            Calendar.APRIL -> "أبريل"
+            Calendar.MAY -> "مايو"
+            Calendar.JUNE -> "يونيو"
+            Calendar.JULY -> "يوليو"
+            Calendar.AUGUST -> "أغسطس"
+            Calendar.SEPTEMBER -> "سبتمبر"
+            Calendar.OCTOBER -> "أكتوبر"
+            Calendar.NOVEMBER -> "نوفمبر"
+            else -> "ديسمبر"
+        }
+        val defaultMonthLabel = "$currentMonthArabic $currentYear"
+        val defaultMonthSortKey = String.format(Locale.US, "%04d-%02d", currentYear, currentMonthNum)
+
+        var newMonthName by remember { mutableStateOf(defaultMonthLabel) }
+        var newMonthKey by remember { mutableStateOf(defaultMonthSortKey) }
+        var academicYear by remember { mutableStateOf(settings?.academicYear?.takeIf { it != "2024 - 2025" }.orEmpty()) }
 
         AlertDialog(
             onDismissRequest = { showCreateMonthDialog = false },
@@ -880,21 +907,21 @@ fun PaymentsScreen(
                     OutlinedTextField(
                         value = newMonthName,
                         onValueChange = { newMonthName = it },
-                        label = { Text("اسم الشهر (مثال: مارس 2025)") },
+                        label = { Text("اسم الشهر (مثال: $defaultMonthLabel)") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
                     OutlinedTextField(
                         value = newMonthKey,
                         onValueChange = { newMonthKey = it },
-                        label = { Text("رمز الترتيب (مثال: 2025-03)") },
+                        label = { Text("رمز الترتيب (مثال: $defaultMonthSortKey)") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
                     OutlinedTextField(
                         value = academicYear,
                         onValueChange = { academicYear = it },
-                        label = { Text("العام الدراسي") },
+                        label = { Text("العام الدراسي (اختياري)") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
@@ -921,409 +948,4 @@ fun PaymentsScreen(
             }
         )
     }
-}
-
-/**
- * نموذج (Form) بسيط لتسجيل دفعات الطلاب
- * يتضمن:
- * 1. اختيار الطالب
- * 2. المبلغ المدفوع
- * 3. تاريخ الدفعة
- * بالإضافة لطريقة الدفع والملاحظات واسم الشهر
- */
-@Composable
-fun SimplePaymentFormDialog(
-    students: List<StudentEntity>,
-    groups: List<GroupEntity>,
-    currency: String,
-    onDismiss: () -> Unit,
-    onConfirm: (studentId: String, amount: Double, paymentDate: String, method: String, notes: String, monthName: String) -> Unit
-) {
-    val groupMap = remember(groups) { groups.associateBy { it.id } }
-    val todayDateStr = remember {
-        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-        sdf.format(Date())
-    }
-
-    var selectedStudentId by remember { mutableStateOf(students.firstOrNull()?.id ?: "") }
-    var studentSearchText by remember { mutableStateOf("") }
-    var isSelectingStudent by remember { mutableStateOf(false) }
-
-    val selectedStudent = students.find { it.id == selectedStudentId }
-
-    var amountText by remember {
-        mutableStateOf(selectedStudent?.monthlyFee?.toInt()?.toString() ?: "150")
-    }
-    var paymentDate by remember { mutableStateOf(todayDateStr) }
-    var selectedMethod by remember { mutableStateOf("نقدًا") }
-    var selectedMonth by remember { mutableStateOf("فبراير") }
-    var notesText by remember { mutableStateOf("") }
-
-    val methods = listOf("نقدًا", "فودافون كاش", "إنستاباي", "تحويل بنكي")
-    val months = listOf("فبراير", "مارس", "يناير")
-
-    val filteredStudents = remember(students, studentSearchText) {
-        if (studentSearchText.isBlank()) students
-        else students.filter {
-            it.fullName.contains(studentSearchText, ignoreCase = true) || it.phone.contains(studentSearchText)
-        }
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.AddCard,
-                        contentDescription = null,
-                        tint = EduTealPrimary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "تسجيل دفعة طالب",
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = 17.sp
-                    )
-                }
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, contentDescription = "إغلاق", modifier = Modifier.size(20.dp))
-                }
-            }
-        },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // 1. اختيار الطالب
-                Text(
-                    text = "1. اختيار الطالب *",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
-                OutlinedCard(
-                    onClick = { isSelectingStudent = !isSelectingStudent },
-                    shape = RoundedCornerShape(10.dp),
-                    colors = CardDefaults.outlinedCardColors(
-                        containerColor = if (selectedStudent != null) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f) else MaterialTheme.colorScheme.surface
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("select_student_trigger")
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                            Surface(
-                                shape = CircleShape,
-                                color = EduTealPrimary.copy(alpha = 0.15f),
-                                modifier = Modifier.size(34.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        Icons.Default.Person,
-                                        contentDescription = null,
-                                        tint = EduTealPrimary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(
-                                    text = selectedStudent?.fullName ?: "اضغط لاختيار الطالب",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = if (selectedStudent != null)
-                                        "${selectedStudent.grade} • الرسوم: ${selectedStudent.monthlyFee.toInt()} $currency"
-                                    else "اختر من قائمة الطلاب النشطين",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.outline
-                                )
-                            }
-                        }
-
-                        Icon(
-                            Icons.Default.ArrowDropDown,
-                            contentDescription = null,
-                            tint = EduTealPrimary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
-
-                // Student Selection Expanded Dropdown/Search
-                if (isSelectingStudent) {
-                    Card(
-                        shape = RoundedCornerShape(10.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(8.dp)) {
-                            OutlinedTextField(
-                                value = studentSearchText,
-                                onValueChange = { studentSearchText = it },
-                                placeholder = { Text("بحث عن طالب بالاسم أو الرقم...", fontSize = 11.sp) },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true,
-                                shape = RoundedCornerShape(8.dp),
-                                leadingIcon = {
-                                    Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
-                                }
-                            )
-
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(140.dp)
-                                    .verticalScroll(rememberScrollState()),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                if (filteredStudents.isEmpty()) {
-                                    Text(
-                                        text = "لا يوجد طلاب مطابقين للبحث",
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.outline,
-                                        modifier = Modifier.padding(8.dp)
-                                    )
-                                } else {
-                                    filteredStudents.forEach { st ->
-                                        val isStSelected = st.id == selectedStudentId
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clickable {
-                                                    selectedStudentId = st.id
-                                                    amountText = st.monthlyFee.toInt().toString()
-                                                    isSelectingStudent = false
-                                                }
-                                                .padding(horizontal = 8.dp, vertical = 6.dp),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Column {
-                                                Text(
-                                                    text = st.fullName,
-                                                    fontSize = 12.sp,
-                                                    fontWeight = if (isStSelected) FontWeight.Bold else FontWeight.Normal,
-                                                    color = if (isStSelected) EduTealPrimary else MaterialTheme.colorScheme.onSurface
-                                                )
-                                                Text(
-                                                    text = "${st.grade} • ${st.monthlyFee.toInt()} $currency",
-                                                    fontSize = 10.sp,
-                                                    color = MaterialTheme.colorScheme.outline
-                                                )
-                                            }
-                                            if (isStSelected) {
-                                                Icon(
-                                                    Icons.Default.Check,
-                                                    contentDescription = null,
-                                                    tint = EduTealPrimary,
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                            }
-                                        }
-                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // 2. المبلغ المدفوع
-                Text(
-                    text = "2. المبلغ المدفوع ($currency) *",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
-                OutlinedTextField(
-                    value = amountText,
-                    onValueChange = { amountText = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                    label = { Text("المبلغ المدفوع") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("payment_amount_input"),
-                    singleLine = true,
-                    shape = RoundedCornerShape(10.dp),
-                    leadingIcon = {
-                        Icon(Icons.Default.MonetizationOn, contentDescription = null, tint = EduSuccessGreen, modifier = Modifier.size(20.dp))
-                    }
-                )
-
-                // Quick Amount Chips
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    val quickAmounts = listOfNotNull(
-                        selectedStudent?.monthlyFee?.toInt()?.toString(),
-                        "100",
-                        "150",
-                        "200",
-                        "300"
-                    ).distinct()
-
-                    quickAmounts.forEach { amt ->
-                        FilterChip(
-                            selected = amountText == amt,
-                            onClick = { amountText = amt },
-                            label = { Text("$amt $currency", fontSize = 10.sp) }
-                        )
-                    }
-                }
-
-                // 3. تاريخ الدفعة
-                Text(
-                    text = "3. تاريخ الدفعة (سنة-شهر-يوم) *",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
-                OutlinedTextField(
-                    value = paymentDate,
-                    onValueChange = { paymentDate = it },
-                    label = { Text("تاريخ السداد (yyyy-MM-dd)") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("payment_date_input"),
-                    singleLine = true,
-                    shape = RoundedCornerShape(10.dp),
-                    leadingIcon = {
-                        Icon(Icons.Default.CalendarToday, contentDescription = null, tint = EduTealPrimary, modifier = Modifier.size(20.dp))
-                    }
-                )
-
-                // Quick Date Chips
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterChip(
-                        selected = paymentDate == todayDateStr,
-                        onClick = { paymentDate = todayDateStr },
-                        label = { Text("اليوم", fontSize = 11.sp) }
-                    )
-
-                    val yesterdayDateStr = remember {
-                        val cal = Calendar.getInstance()
-                        cal.add(Calendar.DAY_OF_YEAR, -1)
-                        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(cal.time)
-                    }
-                    FilterChip(
-                        selected = paymentDate == yesterdayDateStr,
-                        onClick = { paymentDate = yesterdayDateStr },
-                        label = { Text("أمس", fontSize = 11.sp) }
-                    )
-                }
-
-                // 4. الشهر المستحق
-                Text(
-                    text = "عن شهر:",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    months.forEach { m ->
-                        FilterChip(
-                            selected = selectedMonth == m,
-                            onClick = { selectedMonth = m },
-                            label = { Text(m, fontSize = 11.sp) }
-                        )
-                    }
-                }
-
-                // 5. طريقة الدفع
-                Text(
-                    text = "طريقة الدفع:",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    methods.forEach { m ->
-                        FilterChip(
-                            selected = selectedMethod == m,
-                            onClick = { selectedMethod = m },
-                            label = { Text(m, fontSize = 10.sp) }
-                        )
-                    }
-                }
-
-                // 6. ملاحظات إضافية
-                OutlinedTextField(
-                    value = notesText,
-                    onValueChange = { notesText = it },
-                    label = { Text("ملاحظات إضافية (اختياري)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    maxLines = 2,
-                    shape = RoundedCornerShape(10.dp)
-                )
-            }
-        },
-        confirmButton = {
-            val parsedAmount = amountText.toDoubleOrNull() ?: 0.0
-            val isFormValid = selectedStudent != null && parsedAmount > 0.0 && paymentDate.isNotBlank()
-
-            Button(
-                onClick = {
-                    if (isFormValid && selectedStudent != null) {
-                        onConfirm(
-                            selectedStudent.id,
-                            parsedAmount,
-                            paymentDate.trim(),
-                            selectedMethod,
-                            notesText.trim(),
-                            selectedMonth
-                        )
-                    }
-                },
-                enabled = isFormValid,
-                colors = ButtonDefaults.buttonColors(containerColor = EduTealPrimary),
-                shape = RoundedCornerShape(10.dp),
-                modifier = Modifier.testTag("submit_payment_button")
-            ) {
-                Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("تأكيد وحفظ الدفعة", fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = {
-            OutlinedButton(
-                onClick = onDismiss,
-                shape = RoundedCornerShape(10.dp)
-            ) {
-                Text("إلغاء")
-            }
-        }
-    )
 }

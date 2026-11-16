@@ -79,6 +79,7 @@ import com.example.ui.theme.EduSkyTertiary
 import com.example.ui.theme.EduSuccessGreen
 import com.example.ui.theme.EduTealPrimary
 import com.example.ui.theme.EduWarningAmber
+import com.example.ui.theme.eduWhatsAppTextColor
 import com.example.util.WhatsAppHelper
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -111,7 +112,7 @@ fun StudentPaymentSubscriptionDialog(
     val context = LocalContext.current
     val currency = settings?.currency ?: "جنيه"
     val centerName = settings?.centerName ?: "السنتر التعليمي"
-    val defaultAcademicYear = settings?.academicYear ?: "2024 - 2025"
+    val defaultAcademicYear = settings?.academicYear.orEmpty()
 
     val groupMap = remember(groups) { groups.associateBy { it.id } }
     val enrollMap = remember(enrollments) { enrollments.groupBy { it.studentId } }
@@ -134,20 +135,24 @@ fun StudentPaymentSubscriptionDialog(
         mutableStateOf(enrolledGroup?.id ?: groups.firstOrNull()?.id ?: "group_general")
     }
 
-    val months = listOf("سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر", "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو")
+    val months = listOf(
+        "أكتوبر", "نوفمبر", "ديسمبر", "يناير", "فبراير", "مارس",
+        "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر"
+    )
     val currentMonthArabic = remember {
         when (Calendar.getInstance().get(Calendar.MONTH)) {
-            Calendar.SEPTEMBER -> "سبتمبر"
             Calendar.JANUARY -> "يناير"
             Calendar.FEBRUARY -> "فبراير"
             Calendar.MARCH -> "مارس"
             Calendar.APRIL -> "أبريل"
             Calendar.MAY -> "مايو"
             Calendar.JUNE -> "يونيو"
+            Calendar.JULY -> "يوليو"
+            Calendar.AUGUST -> "أغسطس"
+            Calendar.SEPTEMBER -> "سبتمبر"
             Calendar.OCTOBER -> "أكتوبر"
             Calendar.NOVEMBER -> "نوفمبر"
-            Calendar.DECEMBER -> "ديسمبر"
-            else -> "فبراير"
+            else -> "ديسمبر"
         }
     }
     var selectedMonth by remember { mutableStateOf(currentMonthArabic) }
@@ -159,9 +164,9 @@ fun StudentPaymentSubscriptionDialog(
         studentSubscriptions.find { it.monthYear.contains(selectedMonth) }
     }
 
-    val initialFee = remember(selectedStudent, studentEnrollments) {
+    val initialFee = remember(selectedStudent, studentEnrollments, enrolledGroup) {
         val custom = studentEnrollments.firstOrNull()?.customMonthlyFee
-        val fee = custom ?: selectedStudent?.monthlyFee ?: 250.0
+        val fee = custom ?: enrolledGroup?.defaultMonthlyFee ?: selectedStudent?.monthlyFee ?: settings?.defaultFee ?: 250.0
         fee.toInt().toString()
     }
     var expectedFeeText by remember(selectedStudent) { mutableStateOf(initialFee) }
@@ -172,8 +177,6 @@ fun StudentPaymentSubscriptionDialog(
             (existingSubForMonth.status == "غير مدفوع" || existingSubForMonth.status == "لم يدفع" || existingSubForMonth.status == "دفع جزئي")
         ) {
             // When recording a payment for an unpaid month, default selection to "مدفوع" so one click saves it
-            "مدفوع"
-        } else if (existingSubForMonth?.status == "مدفوع" || existingSubForMonth?.status == "مدفوع بالكامل") {
             "مدفوع"
         } else {
             "مدفوع"
@@ -187,7 +190,7 @@ fun StudentPaymentSubscriptionDialog(
         )
     }
 
-    val sdf = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
+    val sdf = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US) }
     val todayDateStr = remember { sdf.format(Date()) }
     var paymentDate by remember { mutableStateOf(todayDateStr) }
 
@@ -211,11 +214,7 @@ fun StudentPaymentSubscriptionDialog(
 
     var nextPaymentDueDate by remember(selectedStudent) {
         mutableStateOf(
-            if (!selectedStudent?.nextPaymentDueDate.isNullOrBlank()) {
-                selectedStudent!!.nextPaymentDueDate
-            } else {
-                defaultNextMonthFirstDay
-            }
+            selectedStudent?.nextPaymentDueDate?.takeIf { it.isNotBlank() } ?: defaultNextMonthFirstDay
         )
     }
 
@@ -276,7 +275,8 @@ fun StudentPaymentSubscriptionDialog(
                     color = MaterialTheme.colorScheme.primary
                 )
 
-                if (selectedStudent != null && !isSelectingStudent) {
+                val activeStudent = selectedStudent
+                if (activeStudent != null && !isSelectingStudent) {
                     Card(
                         shape = RoundedCornerShape(10.dp),
                         colors = CardDefaults.cardColors(containerColor = EduTealPrimary.copy(alpha = 0.08f)),
@@ -292,12 +292,12 @@ fun StudentPaymentSubscriptionDialog(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = selectedStudent!!.fullName,
+                                    text = activeStudent.fullName,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp
                                 )
                                 Text(
-                                    text = "${selectedStudent!!.educationalStage} • ${selectedStudent!!.grade} • هاتف: ${selectedStudent!!.phone}",
+                                    text = "${activeStudent.educationalStage} • ${activeStudent.grade} • هاتف: ${activeStudent.phone}",
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.outline
                                 )
@@ -391,11 +391,11 @@ fun StudentPaymentSubscriptionDialog(
 
                 if (groups.isNotEmpty()) {
                     Text(text = "المجموعة الدراسية:", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
-                    Row(
+                    LazyRow(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        groups.take(3).forEach { g ->
+                        items(groups) { g ->
                             FilterChip(
                                 selected = selectedGroupId == g.id,
                                 onClick = { selectedGroupId = g.id },
@@ -792,7 +792,7 @@ fun StudentPaymentSubscriptionDialog(
                                 text = "إرسال إشعار فوري وتذكير بالموعد القادم عبر واتساب",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF075E54)
+                                color = eduWhatsAppTextColor()
                             )
                             Text(
                                 text = "فتح رسالة واتساب منسقة فور الحفظ لإرسالها لولي أمر الطالب",
@@ -863,7 +863,8 @@ fun StudentPaymentSubscriptionDialog(
                 },
                 enabled = isFormValid,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (selectedMonthStatus == "غير مدفوع") EduErrorRed else EduTealPrimary
+                    containerColor = if (selectedMonthStatus == "غير مدفوع") EduErrorRed else MaterialTheme.colorScheme.primary,
+                    contentColor = if (selectedMonthStatus == "غير مدفوع") Color.White else MaterialTheme.colorScheme.onPrimary
                 ),
                 shape = RoundedCornerShape(10.dp),
                 modifier = Modifier.testTag("submit_subscription_payment_button")

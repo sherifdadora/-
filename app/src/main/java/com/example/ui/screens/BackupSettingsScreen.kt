@@ -1,20 +1,13 @@
 package com.example.ui.screens
 
-import android.content.Context
-import android.os.Build
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -23,26 +16,21 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -50,13 +38,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -70,9 +55,6 @@ import com.example.data.model.StudentEntity
 import com.example.ui.theme.EduSuccessGreen
 import com.example.ui.theme.EduTealPrimary
 import com.example.util.ExportHelper
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -90,37 +72,10 @@ fun BackupSettingsScreen(
     onTriggerSync: () -> Unit
 ) {
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-
-    var isExportingApk by remember { mutableStateOf(false) }
-    var apkFeedbackMessage by remember { mutableStateOf<String?>(null) }
-    val apkSizeText = remember { ExportHelper.getApkSizeMbText(context) }
-
-    val saveApkDocumentLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument(ExportHelper.APK_MIME_TYPE)
-    ) { targetUri ->
-        if (targetUri != null) {
-            isExportingApk = true
-            coroutineScope.launch {
-                val res = withContext(Dispatchers.IO) {
-                    ExportHelper.copyApkToUri(context, targetUri)
-                }
-                isExportingApk = false
-                res.onSuccess { msg ->
-                    apkFeedbackMessage = msg
-                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                }.onFailure { err ->
-                    val errMsg = err.message ?: "تعذر حفظ ملف APK"
-                    apkFeedbackMessage = errMsg
-                    Toast.makeText(context, errMsg, Toast.LENGTH_LONG).show()
-                }
-            }
-        }
-    }
 
     var teacherName by remember(settings) { mutableStateOf(settings?.teacherName ?: "") }
     var centerName by remember(settings) { mutableStateOf(settings?.centerName ?: "سنتر التفوق والريادة") }
-    var academicYear by remember(settings) { mutableStateOf(settings?.academicYear ?: "2024 - 2025") }
+    var academicYear by remember(settings) { mutableStateOf(settings?.academicYear?.takeIf { it != "2024 - 2025" }.orEmpty()) }
     var defaultFeeText by remember(settings) { mutableStateOf((settings?.defaultFee ?: 250.0).toInt().toString()) }
     var absenceThresholdText by remember(settings) { mutableStateOf((settings?.absenceAlertThreshold ?: 3).toString()) }
     var userRole by remember(settings) { mutableStateOf(settings?.userRole ?: "المعلم") }
@@ -138,164 +93,6 @@ fun BackupSettingsScreen(
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // Offline APK Download & Share Card
-        item {
-            ElevatedCard(
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.elevatedCardColors(
-                    containerColor = EduTealPrimary.copy(alpha = 0.08f)
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("apk_export_card")
-            ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Android,
-                                contentDescription = "ملف تثبيت APK",
-                                tint = EduSuccessGreen,
-                                modifier = Modifier.size(26.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Column {
-                                Text(
-                                    text = "تحميل ومشاركة نسخة التطبيق (APK)",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Text(
-                                    text = "حجم الحزمة: $apkSizeText • يعمل أوفلاين بالكامل",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-
-                    Text(
-                        text = "اضغط على زر التحميل لحفظ ملف التثبيت بصيغة APK في مجلد التنزيلات (Downloads) أو مشاركته مباشرة مع الأجهزة الأخرى بدون إنترنت.",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    if (apkFeedbackMessage != null) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = EduSuccessGreen.copy(alpha = 0.14f),
-                            border = BorderStroke(1.dp, EduSuccessGreen.copy(alpha = 0.4f)),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = apkFeedbackMessage!!,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = EduSuccessGreen,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
-                            )
-                        }
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = {
-                                if (isExportingApk) return@Button
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                                    isExportingApk = true
-                                    coroutineScope.launch {
-                                        val res = withContext(Dispatchers.IO) {
-                                            ExportHelper.saveApkToDownloads(context)
-                                        }
-                                        isExportingApk = false
-                                        res.onSuccess { msg ->
-                                            apkFeedbackMessage = msg
-                                            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                                        }.onFailure {
-                                            saveApkDocumentLauncher.launch(ExportHelper.DEFAULT_APK_FILENAME)
-                                        }
-                                    }
-                                } else {
-                                    saveApkDocumentLauncher.launch(ExportHelper.DEFAULT_APK_FILENAME)
-                                }
-                            },
-                            enabled = !isExportingApk,
-                            colors = ButtonDefaults.buttonColors(containerColor = EduTealPrimary),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier
-                                .weight(1.2f)
-                                .heightIn(min = 48.dp)
-                                .testTag("download_apk_button")
-                        ) {
-                            if (isExportingApk) {
-                                CircularProgressIndicator(
-                                    color = Color.White,
-                                    strokeWidth = 2.dp,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            } else {
-                                Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp))
-                            }
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("تنزيل التطبيق APK", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-
-                        OutlinedButton(
-                            onClick = {
-                                if (isExportingApk) return@OutlinedButton
-                                isExportingApk = true
-                                coroutineScope.launch {
-                                    val res = withContext(Dispatchers.IO) {
-                                        ExportHelper.shareApkOffline(context)
-                                    }
-                                    isExportingApk = false
-                                    res.onFailure { err ->
-                                        Toast.makeText(
-                                            context,
-                                            err.message ?: "تعذر مشاركة ملف APK",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
-                                }
-                            },
-                            enabled = !isExportingApk,
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier
-                                .weight(1f)
-                                .heightIn(min = 48.dp)
-                                .testTag("share_apk_button")
-                        ) {
-                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("مشاركة APK", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-
-                    OutlinedButton(
-                        onClick = { saveApkDocumentLauncher.launch(ExportHelper.DEFAULT_APK_FILENAME) },
-                        enabled = !isExportingApk,
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 48.dp)
-                            .testTag("save_apk_custom_folder_button")
-                    ) {
-                        Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("حفظ ملف APK في مجلد تختاره بنفسي", fontSize = 11.sp, fontWeight = FontWeight.Medium)
-                    }
-                }
-            }
-        }
-
         // App & Center Identity Card
         item {
             ElevatedCard(
@@ -327,7 +124,8 @@ fun BackupSettingsScreen(
                     OutlinedTextField(
                         value = academicYear,
                         onValueChange = { academicYear = it },
-                        label = { Text("العام الدراسي الحالي") },
+                        label = { Text("العام الدراسي الحالي (اختياري)") },
+                        placeholder = { Text("اتركه فارغاً أو أدخل العام الدراسي") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
@@ -506,7 +304,7 @@ fun BackupSettingsScreen(
 
                         Button(
                             onClick = {
-                                val timeFormat = SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.getDefault())
+                                val timeFormat = SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.US)
                                 val backupJson = buildBackupJson(students, groups, subscriptions, payments)
                                 ExportHelper.shareText(
                                     context,
@@ -543,7 +341,7 @@ fun BackupSettingsScreen(
             }
         } else {
             items(auditLogs.take(15)) { log ->
-                val timeFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+                val timeFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US)
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant,
@@ -582,7 +380,7 @@ private fun buildBackupJson(
     val sb = StringBuilder()
     sb.append("{\n")
     sb.append("  \"version\": 1,\n")
-    sb.append("  \"exportDate\": \"${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())}\",\n")
+    sb.append("  \"exportDate\": \"${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())}\",\n")
     sb.append("  \"studentsCount\": ${students.size},\n")
     sb.append("  \"groupsCount\": ${groups.size},\n")
     sb.append("  \"subscriptionsCount\": ${subs.size},\n")

@@ -60,9 +60,9 @@ data class MonthlySubscriptionEntity(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),
     val studentId: String,
     val groupId: String,
-    val monthYear: String, // e.g. "يناير 2025"
-    val monthSortKey: String = "", // e.g. "2025-01" for ordering
-    val academicYear: String = "2024 - 2025",
+    val monthYear: String, // e.g. "يناير 2026"
+    val monthSortKey: String = "", // e.g. "2026-01" for ordering
+    val academicYear: String = "",
     val expectedAmount: Double = 250.0,
     val status: String = "لم يدفع", // لم يدفع، دفع جزئي، مدفوع بالكامل، معفى
     val exemptionReason: String? = null,
@@ -124,7 +124,7 @@ data class AppSettingsEntity(
     val teacherName: String = "",
     val centerName: String = "سنتر التفوق والريادة التعليمي",
     val currency: String = "جنيه",
-    val academicYear: String = "2024 - 2025",
+    val academicYear: String = "",
     val defaultFee: Double = 250.0,
     val absenceAlertThreshold: Int = 3,
     val userRole: String = "المعلم",

@@ -64,8 +64,10 @@ import com.example.data.model.StudentEntity
 import com.example.ui.components.WhatsAppMessageComposerDialog
 import com.example.ui.components.WhatsAppRecipientMode
 import com.example.ui.theme.EduErrorRed
-import com.example.ui.theme.EduSuccessGreen
 import com.example.ui.theme.EduTealPrimary
+import com.example.ui.theme.eduErrorContentColor
+import com.example.ui.theme.eduSuccessContentColor
+import com.example.ui.theme.eduWhatsAppTextColor
 import com.example.util.WhatsAppHelper
 import com.example.util.WhatsAppMessageTemplateType
 import java.util.UUID
@@ -158,10 +160,10 @@ fun GroupsScreen(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(20.dp),
-            containerColor = EduTealPrimary,
-            contentColor = Color.White
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
         ) {
-            Icon(Icons.Default.Add, contentDescription = "إضافة مجموعة جديدة", modifier = Modifier.size(32.dp))
+            Icon(Icons.Default.Add, contentDescription = "إضافة مجموعة جديدة", modifier = Modifier.size(36.dp))
         }
     }
 
@@ -176,8 +178,7 @@ fun GroupsScreen(
         )
     }
 
-    if (groupToDelete != null) {
-        val g = groupToDelete!!
+    groupToDelete?.let { g ->
         AlertDialog(
             onDismissRequest = { groupToDelete = null },
             title = { Text("تأكيد حذف المجموعة", fontWeight = FontWeight.Bold, color = EduErrorRed) },
@@ -263,7 +264,7 @@ fun GroupItemCard(
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.People, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Default.People, contentDescription = null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "$studentsCount / ${group.maxStudents} طالب",
@@ -279,7 +280,7 @@ fun GroupItemCard(
 
             // Timetable & Location
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.outline)
+                Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.outline)
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = "${group.daysOfWeek} • الساعة ${group.sessionTime}",
@@ -289,7 +290,7 @@ fun GroupItemCard(
             }
             Spacer(modifier = Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.outline)
+                Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.outline)
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = group.location,
@@ -303,7 +304,7 @@ fun GroupItemCard(
                 text = "قيمة الاشتراك الشهري: ${group.defaultMonthlyFee.toInt()} $currency",
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = EduSuccessGreen
+                color = eduSuccessContentColor()
             )
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -319,10 +320,13 @@ fun GroupItemCard(
                 Button(
                     onClick = onAttendanceClick,
                     shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
                     modifier = Modifier.weight(1.1f)
                 ) {
-                    Icon(Icons.Default.HowToReg, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.HowToReg, contentDescription = null, modifier = Modifier.size(22.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("الحضور", fontSize = 11.sp)
                 }
@@ -333,29 +337,29 @@ fun GroupItemCard(
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
                     modifier = Modifier.weight(1.3f)
                 ) {
-                    Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
+                    Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(22.dp), tint = Color.White)
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("رسالة للجروب", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
                 }
 
                 if (group.whatsappLink.isNotBlank()) {
-                    IconButton(onClick = onWhatsAppGroupClick, modifier = Modifier.size(44.dp)) {
-                        Icon(Icons.Default.Chat, contentDescription = "فتح رابط الجروب", modifier = Modifier.size(22.dp), tint = Color(0xFF075E54))
+                    IconButton(onClick = onWhatsAppGroupClick, modifier = Modifier.size(48.dp)) {
+                        Icon(Icons.Default.Chat, contentDescription = "فتح رابط الجروب", modifier = Modifier.size(26.dp), tint = eduWhatsAppTextColor())
                     }
-                    IconButton(onClick = onCopyLinkClick, modifier = Modifier.size(44.dp)) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = "نسخ رابط واتساب", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.outline)
+                    IconButton(onClick = onCopyLinkClick, modifier = Modifier.size(48.dp)) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = "نسخ رابط واتساب", modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.outline)
                     }
                 }
 
                 IconButton(
                     onClick = onDeleteClick,
-                    modifier = Modifier.size(44.dp)
+                    modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
                         Icons.Default.Delete,
                         contentDescription = "حذف المجموعة",
-                        modifier = Modifier.size(22.dp),
-                        tint = EduErrorRed
+                        modifier = Modifier.size(26.dp),
+                        tint = eduErrorContentColor()
                     )
                 }
             }

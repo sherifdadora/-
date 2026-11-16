@@ -280,8 +280,7 @@ fun OverdueScreen(
         }
     }
 
-    if (activeSubForPayment != null && activeItemForPayment != null) {
-        val item = activeItemForPayment!!
+    activeItemForPayment?.let { item ->
         PaymentDialog(
             studentName = item.student.fullName,
             groupName = item.group?.name ?: "",

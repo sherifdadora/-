@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -61,8 +62,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import android.widget.Toast
@@ -78,12 +81,15 @@ import com.example.ui.components.StudentPaymentSubscriptionDialog
 import com.example.ui.components.WhatsAppMessageComposerDialog
 import com.example.ui.components.WhatsAppRecipientMode
 import com.example.ui.theme.EduErrorRed
-import com.example.ui.theme.EduSkyContainer
 import com.example.ui.theme.EduSkyTertiary
-import com.example.ui.theme.EduSuccessContainer
 import com.example.ui.theme.EduSuccessGreen
-import com.example.ui.theme.EduTealPrimary
 import com.example.ui.theme.EduWarningAmber
+import com.example.ui.theme.eduErrorContainerColor
+import com.example.ui.theme.eduErrorContentColor
+import com.example.ui.theme.eduSuccessContainerColor
+import com.example.ui.theme.eduSuccessContentColor
+import com.example.ui.theme.eduWarningContainerColor
+import com.example.ui.theme.eduWarningContentColor
 import com.example.util.ExportHelper
 import com.example.util.WhatsAppHelper
 import com.example.util.WhatsAppMessageTemplateType
@@ -91,6 +97,35 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
+
+fun filterStudentsByQuery(
+    students: List<StudentEntity>,
+    query: String,
+    stageFilter: String = "الكل",
+    statusFilter: String = "الكل"
+): List<StudentEntity> {
+    val trimmedQuery = query.trim()
+    val normalizedPhoneQuery = StudentInputValidator.normalizePhoneInput(trimmedQuery)
+
+    return students.filter { student ->
+        val matchesQuery = if (trimmedQuery.isEmpty()) {
+            true
+        } else {
+            val normalizedStudentPhone = StudentInputValidator.normalizePhoneInput(student.phone)
+            val normalizedParentPhone = StudentInputValidator.normalizePhoneInput(student.parentPhone)
+            student.fullName.contains(trimmedQuery, ignoreCase = true) ||
+                student.phone.contains(trimmedQuery, ignoreCase = true) ||
+                student.parentPhone.contains(trimmedQuery, ignoreCase = true) ||
+                (normalizedPhoneQuery.isNotEmpty() && (
+                    normalizedStudentPhone.contains(normalizedPhoneQuery) ||
+                        normalizedParentPhone.contains(normalizedPhoneQuery)
+                    ))
+        }
+        val matchesStage = stageFilter == "الكل" || student.educationalStage == stageFilter
+        val matchesStatus = statusFilter == "الكل" || student.status == statusFilter
+        matchesQuery && matchesStage && matchesStatus
+    }.sortedBy { it.fullName }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -103,6 +138,7 @@ fun StudentsScreen(
     settings: AppSettingsEntity?,
     onOpenProfile: (String) -> Unit,
     onOpenStatement: (String) -> Unit,
+    onOpenAddStudent: () -> Unit = {},
     onAddStudent: (StudentEntity, String?) -> Unit,
     onUpdateStudent: (StudentEntity) -> Unit,
     onArchiveStudent: (String, String) -> Unit,
@@ -123,6 +159,7 @@ fun StudentsScreen(
     ) -> Unit = { _, _, _, _, _, _, _, _, _, _, _ -> }
 ) {
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
     val currency = settings?.currency ?: "جنيه"
 
     var searchQuery by remember { mutableStateOf("") }
@@ -135,35 +172,41 @@ fun StudentsScreen(
     var composerTarget by remember { mutableStateOf<Pair<StudentEntity, GroupEntity?>?>(null) }
     var studentForPaymentForm by remember { mutableStateOf<StudentEntity?>(null) }
 
-    // Filtering logic
-    val filteredStudents = students.filter { student ->
-        val matchesQuery = student.fullName.contains(searchQuery, ignoreCase = true) ||
-                student.phone.contains(searchQuery) ||
-                student.parentPhone.contains(searchQuery) ||
-                student.grade.contains(searchQuery, ignoreCase = true)
-        val matchesStage = selectedStageFilter == "الكل" || student.educationalStage == selectedStageFilter
-        val matchesStatus = selectedStatusFilter == "الكل" || student.status == selectedStatusFilter
-        matchesQuery && matchesStage && matchesStatus
-    }.sortedBy { it.fullName }
+    // Filtering logic by student name or phone number (+ optional stage/status chips)
+    val filteredStudents = remember(students, searchQuery, selectedStageFilter, selectedStatusFilter) {
+        filterStudentsByQuery(
+            students = students,
+            query = searchQuery,
+            stageFilter = selectedStageFilter,
+            statusFilter = selectedStatusFilter
+        )
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 10.dp)) {
-            // Search Bar
+            // Search Bar at top of student list
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("بحث باسم الطالب أو رقم الهاتف أو الصف...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "بحث") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("students_search_bar"),
+                placeholder = { Text("ابحث باسم الطالب أو رقم الهاتف...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "بحث", modifier = Modifier.size(26.dp)) },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Default.Clear, contentDescription = "مسح")
+                        IconButton(
+                            onClick = { searchQuery = "" },
+                            modifier = Modifier.testTag("students_search_clear_button")
+                        ) {
+                            Icon(Icons.Default.Clear, contentDescription = "مسح البحث", modifier = Modifier.size(24.dp))
                         }
                     }
                 },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
                 singleLine = true,
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(14.dp)
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -211,7 +254,7 @@ fun StudentsScreen(
                     }
                     ExportHelper.shareText(context, "قائمة الطلاب", sb.toString())
                 }) {
-                    Icon(Icons.Default.Share, contentDescription = "تصدير القائمة", modifier = Modifier.size(26.dp), tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Default.Share, contentDescription = "تصدير القائمة", modifier = Modifier.size(30.dp), tint = MaterialTheme.colorScheme.primary)
                 }
             }
 
@@ -231,7 +274,11 @@ fun StudentsScreen(
             if (filteredStudents.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = "لا يوجد طلاب يطابقون خيارات البحث",
+                        text = if (students.isEmpty()) {
+                            "لا يوجد طلاب مسجلون بعد. اضغط + لإضافة أول طالب."
+                        } else {
+                            "لا يوجد طلاب يطابقون خيارات البحث"
+                        },
                         color = MaterialTheme.colorScheme.outline,
                         fontSize = 14.sp
                     )
@@ -300,14 +347,14 @@ fun StudentsScreen(
 
         // Add Student Floating Action Button
         FloatingActionButton(
-            onClick = { showAddDialog = true },
+            onClick = { onOpenAddStudent() },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(20.dp),
-            containerColor = EduTealPrimary,
-            contentColor = Color.White
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
         ) {
-            Icon(Icons.Default.Add, contentDescription = "إضافة طالب جديد", modifier = Modifier.size(32.dp))
+            Icon(Icons.Default.Add, contentDescription = "إضافة طالب جديد", modifier = Modifier.size(36.dp))
         }
     }
 
@@ -335,8 +382,7 @@ fun StudentsScreen(
     }
 
     // Delete Confirmation Dialog
-    if (studentToArchive != null) {
-        val s = studentToArchive!!
+    studentToArchive?.let { s ->
         AlertDialog(
             onDismissRequest = { studentToArchive = null },
             title = { Text("تأكيد حذف الطالب", fontWeight = FontWeight.Bold, color = EduErrorRed) },
@@ -366,8 +412,7 @@ fun StudentsScreen(
         )
     }
 
-    if (composerTarget != null) {
-        val (targetStudent, targetGroup) = composerTarget!!
+    composerTarget?.let { (targetStudent, targetGroup) ->
         val stSubs = subscriptions.filter { it.studentId == targetStudent.id }
         val stPayments = payments.filter { it.studentId == targetStudent.id }
         val totalPaid = stPayments.sumOf { it.amountPaid }
@@ -385,8 +430,7 @@ fun StudentsScreen(
         )
     }
 
-    if (studentForPaymentForm != null) {
-        val targetStudent = studentForPaymentForm!!
+    studentForPaymentForm?.let { targetStudent ->
         StudentPaymentSubscriptionDialog(
             initialStudentId = targetStudent.id,
             students = students,
@@ -440,7 +484,7 @@ fun StudentItemCard(
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                     Box(
                         modifier = Modifier
-                            .size(54.dp)
+                            .size(60.dp)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.primaryContainer),
                         contentAlignment = Alignment.Center
@@ -449,7 +493,7 @@ fun StudentItemCard(
                             imageVector = Icons.Default.Person,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(32.dp)
+                            modifier = Modifier.size(36.dp)
                         )
                     }
                     Spacer(modifier = Modifier.width(10.dp))
@@ -471,9 +515,9 @@ fun StudentItemCard(
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = when (student.status) {
-                        "نشط" -> EduSuccessContainer
-                        "موقوف" -> EduWarningAmber.copy(alpha = 0.2f)
-                        else -> EduErrorRed.copy(alpha = 0.15f)
+                        "نشط" -> eduSuccessContainerColor()
+                        "موقوف" -> eduWarningContainerColor()
+                        else -> eduErrorContainerColor()
                     }
                 ) {
                     Text(
@@ -481,9 +525,9 @@ fun StudentItemCard(
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         color = when (student.status) {
-                            "نشط" -> EduSuccessGreen
-                            "موقوف" -> EduWarningAmber
-                            else -> EduErrorRed
+                            "نشط" -> eduSuccessContentColor()
+                            "موقوف" -> eduWarningContentColor()
+                            else -> eduErrorContentColor()
                         },
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                     )
@@ -507,7 +551,7 @@ fun StudentItemCard(
             }
             Spacer(modifier = Modifier.height(4.dp))
 
-            val academicMonths = listOf("أكتوبر", "نوفمبر", "ديسمبر", "يناير", "فبراير", "مارس", "أبريل", "مايو")
+            val academicMonths = PaymentInputHelper.academicOrderMonths
             val studentSubs = subscriptions.filter { it.studentId == student.id }
 
             LazyRow(
@@ -568,8 +612,7 @@ fun StudentItemCard(
                 }
             }
 
-            if (monthToCancel != null) {
-                val mName = monthToCancel!!
+            monthToCancel?.let { mName ->
                 AlertDialog(
                     onDismissRequest = { monthToCancel = null },
                     title = { Text("تحديث حالة شهر $mName", fontWeight = FontWeight.Bold) },
@@ -648,14 +691,17 @@ fun StudentItemCard(
             // Payment Form Trigger Button per Student
             Button(
                 onClick = onOpenPaymentForm,
-                colors = ButtonDefaults.buttonColors(containerColor = EduTealPrimary),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
                 shape = RoundedCornerShape(10.dp),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 8.dp)
                     .testTag("student_payment_form_button_${student.id}")
             ) {
-                Icon(Icons.Default.AddCard, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.AddCard, contentDescription = null, modifier = Modifier.size(22.dp))
                 Spacer(modifier = Modifier.width(6.dp))
                 Text("نموذج تسجيل دفعة وتحديث حالة الشهر", fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
@@ -673,7 +719,7 @@ fun StudentItemCard(
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("واتساب", fontSize = 11.sp, color = Color.White)
                 }
@@ -689,24 +735,24 @@ fun StudentItemCard(
 
                 // WhatsApp Parent quick icon or button if available
                 if (student.parentPhone.isNotBlank()) {
-                    IconButton(onClick = onWhatsAppParent, modifier = Modifier.size(44.dp)) {
-                        Icon(Icons.Default.Chat, contentDescription = "واتساب ولي الأمر", modifier = Modifier.size(22.dp), tint = EduTealPrimary)
+                    IconButton(onClick = onWhatsAppParent, modifier = Modifier.size(48.dp)) {
+                        Icon(Icons.Default.Chat, contentDescription = "واتساب ولي الأمر", modifier = Modifier.size(26.dp), tint = MaterialTheme.colorScheme.primary)
                     }
                 }
 
                 // Account Statement icon
-                IconButton(onClick = onStatementClick, modifier = Modifier.size(44.dp)) {
-                    Icon(Icons.Default.ReceiptLong, contentDescription = "كشف الحساب", modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
+                IconButton(onClick = onStatementClick, modifier = Modifier.size(48.dp)) {
+                    Icon(Icons.Default.ReceiptLong, contentDescription = "كشف الحساب", modifier = Modifier.size(28.dp), tint = MaterialTheme.colorScheme.primary)
                 }
 
                 // Edit
-                IconButton(onClick = onEditClick, modifier = Modifier.size(44.dp)) {
-                    Icon(Icons.Default.Edit, contentDescription = "تعديل", modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.secondary)
+                IconButton(onClick = onEditClick, modifier = Modifier.size(48.dp)) {
+                    Icon(Icons.Default.Edit, contentDescription = "تعديل", modifier = Modifier.size(28.dp), tint = MaterialTheme.colorScheme.secondary)
                 }
 
                 // Delete
-                IconButton(onClick = onArchiveClick, modifier = Modifier.size(44.dp)) {
-                    Icon(Icons.Default.Delete, contentDescription = "حذف الطالب", modifier = Modifier.size(24.dp), tint = EduErrorRed)
+                IconButton(onClick = onArchiveClick, modifier = Modifier.size(48.dp)) {
+                    Icon(Icons.Default.Delete, contentDescription = "حذف الطالب", modifier = Modifier.size(28.dp), tint = eduErrorContentColor())
                 }
             }
         }
@@ -858,7 +904,7 @@ fun StudentFormDialog(
             Button(
                 onClick = {
                     if (name.isNotBlank() && phone.isNotBlank()) {
-                        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
                         val student = (initialStudent ?: StudentEntity(
                             id = UUID.randomUUID().toString(),
                             fullName = name,
@@ -885,7 +931,10 @@ fun StudentFormDialog(
                         onSave(student, selectedGroupId)
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = EduTealPrimary)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
             ) {
                 Text(if (isEdit) "حفظ التعديلات" else "إضافة الطالب")
             }

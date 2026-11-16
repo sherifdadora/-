@@ -1,10 +1,12 @@
 package com.example.ui
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
@@ -17,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -24,6 +27,7 @@ import com.example.data.model.MonthlySubscriptionEntity
 import com.example.ui.components.AppDrawerContent
 import com.example.ui.components.AppTopBar
 import com.example.ui.components.PaymentDialog
+import com.example.ui.screens.AddStudentScreen
 import com.example.ui.screens.AttendanceReportsScreen
 import com.example.ui.screens.AttendanceScreen
 import com.example.ui.screens.BackupSettingsScreen
@@ -31,7 +35,9 @@ import com.example.ui.screens.DashboardScreen
 import com.example.ui.screens.GroupDetailScreen
 import com.example.ui.screens.GroupsScreen
 import com.example.ui.screens.OverdueScreen
+import com.example.ui.screens.PaymentInputHelper
 import com.example.ui.screens.PaymentsScreen
+import com.example.ui.screens.RecordPaymentScreen
 import com.example.ui.screens.ReportsScreen
 import com.example.ui.screens.ScheduleScreen
 import com.example.ui.screens.StatementScreen
@@ -46,6 +52,7 @@ fun MainScreen(
     isDarkMode: Boolean,
     onToggleDarkMode: () -> Unit
 ) {
+    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
@@ -79,22 +86,12 @@ fun MainScreen(
     val userRole = settings?.userRole ?: "المعلم"
     val currency = settings?.currency ?: "جنيه"
 
-    // BackHandler for sub-screens
-    BackHandler(enabled = currentScreen != ScreenDestination.DASHBOARD) {
+    // BackHandler for sub-screens and open drawer
+    BackHandler(enabled = drawerState.isOpen || currentScreen != ScreenDestination.DASHBOARD) {
         if (drawerState.isOpen) {
             coroutineScope.launch { drawerState.close() }
         } else {
-            when (currentScreen) {
-                ScreenDestination.STUDENT_PROFILE, ScreenDestination.STATEMENT -> {
-                    viewModel.navigateTo(ScreenDestination.STUDENTS)
-                }
-                ScreenDestination.GROUP_DETAIL -> {
-                    viewModel.navigateTo(ScreenDestination.GROUPS)
-                }
-                else -> {
-                    viewModel.navigateTo(ScreenDestination.DASHBOARD)
-                }
-            }
+            viewModel.navigateBack()
         }
     }
 
@@ -103,7 +100,9 @@ fun MainScreen(
         ModalNavigationDrawer(
             drawerState = drawerState,
             drawerContent = {
-                ModalDrawerSheet {
+                ModalDrawerSheet(
+                    drawerContainerColor = MaterialTheme.colorScheme.surface
+                ) {
                     AppDrawerContent(
                         currentScreen = currentScreen,
                         centerName = centerName,
@@ -117,6 +116,7 @@ fun MainScreen(
             }
         ) {
             Scaffold(
+                containerColor = MaterialTheme.colorScheme.background,
                 topBar = {
                     AppTopBar(
                         currentScreen = currentScreen,
@@ -129,17 +129,7 @@ fun MainScreen(
                             coroutineScope.launch { drawerState.open() }
                         },
                         onBackClick = {
-                            when (currentScreen) {
-                                ScreenDestination.STUDENT_PROFILE, ScreenDestination.STATEMENT -> {
-                                    viewModel.navigateTo(ScreenDestination.STUDENTS)
-                                }
-                                ScreenDestination.GROUP_DETAIL -> {
-                                    viewModel.navigateTo(ScreenDestination.GROUPS)
-                                }
-                                else -> {
-                                    viewModel.navigateTo(ScreenDestination.DASHBOARD)
-                                }
-                            }
+                            viewModel.navigateBack()
                         },
                         onToggleDarkMode = onToggleDarkMode,
                         onSyncClick = { viewModel.triggerManualSync() }
@@ -179,6 +169,7 @@ fun MainScreen(
                                 settings = settings,
                                 onOpenProfile = { viewModel.openStudentProfile(it) },
                                 onOpenStatement = { viewModel.openStudentStatement(it) },
+                                onOpenAddStudent = { viewModel.openAddStudentScreen(ScreenDestination.STUDENTS) },
                                 onAddStudent = { student, groupId -> viewModel.addStudent(student, groupId) },
                                 onUpdateStudent = { viewModel.updateStudent(it) },
                                 onArchiveStudent = { id, name -> viewModel.archiveStudent(id, name) },
@@ -189,6 +180,20 @@ fun MainScreen(
                                         sId, gId, mName, aYear, expFee, amtPaid, pDate, nDueDate, method, notes, mStatus
                                     )
                                 }
+                            )
+                        }
+
+                        ScreenDestination.ADD_STUDENT -> {
+                            AddStudentScreen(
+                                groups = groups,
+                                settings = settings,
+                                onSaveStudent = { student, groupId ->
+                                    viewModel.addStudent(student, groupId)
+                                    Toast.makeText(context, "تم إضافة الطالب ${student.fullName} بنجاح", Toast.LENGTH_SHORT).show()
+                                    viewModel.navigateAfterStudentAdded()
+                                },
+                                onCancel = { viewModel.navigateBack() },
+                                onNavigateToGroups = { viewModel.navigateTo(ScreenDestination.GROUPS) }
                             )
                         }
 
@@ -273,7 +278,9 @@ fun MainScreen(
                                 onSaveSession = { session, recs -> viewModel.saveAttendanceSession(session, recs) },
                                 onTriggerSync = { viewModel.triggerManualSync() },
                                 onUpdateCloudSyncUrl = { viewModel.updateCloudSyncUrl(it) },
-                                onClearSyncFeedback = { viewModel.clearSyncFeedback() }
+                                onClearSyncFeedback = { viewModel.clearSyncFeedback() },
+                                onNavigateToGroups = { viewModel.navigateTo(ScreenDestination.GROUPS) },
+                                onNavigateToGroupDetail = { viewModel.openGroupDetail(it) }
                             )
                         }
 
@@ -315,7 +322,68 @@ fun MainScreen(
                                 },
                                 onCreateMonthlySubscriptions = { month, key, year ->
                                     viewModel.createMonthlySubscriptions(month, key, year)
+                                },
+                                onOpenRecordPayment = {
+                                    viewModel.openRecordPaymentScreen()
                                 }
+                            )
+                        }
+
+                        ScreenDestination.RECORD_PAYMENT -> {
+                            RecordPaymentScreen(
+                                students = students,
+                                groups = groups,
+                                enrollments = enrollments,
+                                subscriptions = subscriptions,
+                                settings = settings,
+                                initialStudentId = selectedStudentId,
+                                onQuickPayMonth = { studentId, monthName, groupId, amount, paymentDate, method, notes ->
+                                    viewModel.quickPayMonth(
+                                        studentId = studentId,
+                                        monthName = monthName,
+                                        groupId = groupId,
+                                        amount = amount,
+                                        paymentDate = paymentDate,
+                                        paymentMethod = method,
+                                        notes = notes
+                                    )
+                                },
+                                onCancelMonthPayment = { studentId, monthName ->
+                                    viewModel.cancelMonthPayment(studentId, monthName)
+                                },
+                                onSavePayment = { studentId, groupId, monthName, amount, paymentDate, method, notes ->
+                                    val student = students.find { it.id == studentId }
+                                    val group = groups.find { it.id == groupId }
+                                    val enrollment = enrollments.firstOrNull { it.studentId == studentId && it.isActive }
+                                    val expectedFee = enrollment?.customMonthlyFee
+                                        ?: group?.defaultMonthlyFee
+                                        ?: student?.monthlyFee
+                                        ?: settings?.defaultFee
+                                        ?: amount
+                                    val academicYear = settings?.academicYear.orEmpty()
+
+                                    viewModel.recordStudentSubscriptionAndPayment(
+                                        studentId = studentId,
+                                        groupId = groupId,
+                                        monthName = monthName,
+                                        academicYear = academicYear,
+                                        expectedFee = expectedFee,
+                                        amountPaid = amount,
+                                        paymentDate = paymentDate,
+                                        nextDueDate = "",
+                                        paymentMethod = method,
+                                        notes = notes,
+                                        explicitMonthStatus = "مدفوع"
+                                    )
+                                    Toast.makeText(
+                                        context,
+                                        "تم حفظ دفعة شهر $monthName للطالب ${student?.fullName ?: "الطالب"} بمبلغ ${amount.toInt()} $currency",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                    viewModel.navigateAfterPaymentRecorded()
+                                },
+                                onCancel = { viewModel.navigateBack() },
+                                onNavigateToAddStudent = { viewModel.openAddStudentScreen(ScreenDestination.RECORD_PAYMENT) }
                             )
                         }
 
@@ -388,8 +456,7 @@ fun MainScreen(
     }
 
     // Global Payment Dialog
-    if (activeSubForPayment != null) {
-        val sub = activeSubForPayment!!
+    activeSubForPayment?.let { sub ->
         val student = students.find { it.id == sub.studentId }
         val group = groups.find { it.id == sub.groupId }
         val subPayments = payments.filter { it.subscriptionId == sub.id }

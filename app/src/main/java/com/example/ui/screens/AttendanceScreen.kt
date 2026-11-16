@@ -2,10 +2,12 @@ package com.example.ui.screens
 
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
@@ -19,18 +21,27 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.CloudQueue
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.PersonOff
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Sync
@@ -39,15 +50,26 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -57,6 +79,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -72,23 +95,25 @@ import com.example.data.model.GroupEntity
 import com.example.data.model.StudentEntity
 import com.example.ui.components.AbsenceNoticeBatchDialog
 import com.example.ui.components.CloudSyncConfigDialog
-import com.example.ui.theme.EduErrorContainer
 import com.example.ui.theme.EduErrorRed
-import com.example.ui.theme.EduSkyContainer
-import com.example.ui.theme.EduSkyTertiary
-import com.example.ui.theme.EduSuccessContainer
 import com.example.ui.theme.EduSuccessGreen
-import com.example.ui.theme.EduTealPrimary
-import com.example.ui.theme.EduWarningAmber
-import com.example.ui.theme.EduWarningContainer
+import com.example.ui.theme.eduErrorContainerColor
+import com.example.ui.theme.eduErrorContentColor
+import com.example.ui.theme.eduSkyContainerColor
+import com.example.ui.theme.eduSuccessContainerColor
+import com.example.ui.theme.eduSuccessContentColor
+import com.example.ui.theme.eduWarningContainerColor
+import com.example.ui.theme.eduWarningContentColor
 import com.example.util.AttendanceCloudSyncService
 import com.example.util.ExportHelper
 import com.example.util.WhatsAppHelper
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 import java.util.UUID
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AttendanceScreen(
     initialGroupId: String?,
@@ -105,53 +130,55 @@ fun AttendanceScreen(
     onSaveSession: (AttendanceSessionEntity, List<AttendanceRecordEntity>) -> Unit,
     onTriggerSync: () -> Unit = {},
     onUpdateCloudSyncUrl: (String) -> Unit = {},
-    onClearSyncFeedback: () -> Unit = {}
+    onClearSyncFeedback: () -> Unit = {},
+    onNavigateToGroups: () -> Unit = {},
+    onNavigateToGroupDetail: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
-    val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
+    val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US) }
     val timeFormat = remember { SimpleDateFormat("hh:mm a", Locale.getDefault()) }
 
     var selectedGroupId by remember {
-        mutableStateOf(initialGroupId ?: groups.firstOrNull()?.id ?: "")
+        mutableStateOf(initialGroupId?.takeIf { id -> groups.any { it.id == id } } ?: groups.firstOrNull()?.id ?: "")
     }
 
     LaunchedEffect(initialGroupId, groups) {
         if (!initialGroupId.isNullOrBlank() && groups.any { it.id == initialGroupId }) {
             selectedGroupId = initialGroupId
-        } else if (selectedGroupId.isBlank() && groups.isNotEmpty()) {
-            selectedGroupId = groups.first().id
+        } else if (selectedGroupId.isBlank() || groups.none { it.id == selectedGroupId }) {
+            selectedGroupId = groups.firstOrNull()?.id ?: ""
         }
     }
 
     val currentGroup = groups.find { it.id == selectedGroupId }
-    var editingSessionId by remember(selectedGroupId) { mutableStateOf<String?>(null) }
+    var groupMenuExpanded by remember { mutableStateOf(false) }
+
     var sessionDate by remember { mutableStateOf(dateFormat.format(Date())) }
-    var sessionTime by remember(selectedGroupId) {
-        mutableStateOf(currentGroup?.sessionTime?.ifBlank { timeFormat.format(Date()) } ?: timeFormat.format(Date()))
-    }
-    var lessonTopic by remember(selectedGroupId) { mutableStateOf("") }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var sessionTime by remember { mutableStateOf(currentGroup?.sessionTime?.ifBlank { timeFormat.format(Date()) } ?: timeFormat.format(Date())) }
+    var lessonTopic by remember { mutableStateOf("") }
     var teacherName by remember(settings?.teacherName) { mutableStateOf(settings?.teacherName ?: "") }
+    var studentSearchQuery by remember { mutableStateOf("") }
 
-    val groupEnrollments = enrollments.filter { it.groupId == selectedGroupId && it.isActive }
-    val enrolledStudents = students.filter { s -> groupEnrollments.any { it.studentId == s.id } }
-
-    // Map of studentId -> attendance status ("حاضر", "غائب", "متأخر", "غياب بعذر")
-    val attendanceMap = remember(selectedGroupId, enrolledStudents) {
-        mutableStateMapOf<String, String>().apply {
-            enrolledStudents.forEach { s ->
-                this[s.id] = "حاضر"
+    val groupEnrollments = remember(enrollments, selectedGroupId) {
+        enrollments.filter { it.groupId == selectedGroupId && it.isActive }
+    }
+    val enrolledStudents = remember(students, groupEnrollments) {
+        val studentIds = groupEnrollments.map { it.studentId }.toSet()
+        students.filter { it.id in studentIds }.sortedBy { it.fullName }
+    }
+    val filteredStudents = remember(enrolledStudents, studentSearchQuery) {
+        if (studentSearchQuery.isBlank()) {
+            enrolledStudents
+        } else {
+            val q = studentSearchQuery.trim()
+            enrolledStudents.filter {
+                it.fullName.contains(q, ignoreCase = true) ||
+                    it.phone.contains(q) ||
+                    it.parentPhone.contains(q)
             }
         }
     }
-
-    val notesMap = remember(selectedGroupId) {
-        mutableStateMapOf<String, String>()
-    }
-
-    val presentCount = enrolledStudents.count { (attendanceMap[it.id] ?: "حاضر") == "حاضر" }
-    val absentCount = enrolledStudents.count { attendanceMap[it.id] == "غائب" }
-    val lateCount = enrolledStudents.count { attendanceMap[it.id] == "متأخر" }
-    val excusedCount = enrolledStudents.count { attendanceMap[it.id] == "غياب بعذر" }
 
     val groupSessions = remember(sessions, selectedGroupId) {
         sessions.filter { it.groupId == selectedGroupId }
@@ -161,601 +188,1031 @@ fun AttendanceScreen(
         groupSessions.firstOrNull { it.sessionDate == sessionDate }
     }
 
+    val attendanceMap = remember { mutableStateMapOf<String, String>() }
+    val notesMap = remember { mutableStateMapOf<String, String>() }
+    var editingSessionId by remember { mutableStateOf<String?>(null) }
+    var hasUnsavedChanges by remember { mutableStateOf(false) }
+    var loadedSessionKey by remember { mutableStateOf<String?>(null) }
+
+    // Synchronize form state automatically with Room records when group, date, or saved session changes
+    LaunchedEffect(selectedGroupId, sessionDate, matchingDateSession?.id, records, enrolledStudents) {
+        val targetKey = "$selectedGroupId|$sessionDate|${matchingDateSession?.id.orEmpty()}"
+        if (targetKey != loadedSessionKey) {
+            editingSessionId = matchingDateSession?.id
+            attendanceMap.clear()
+            notesMap.clear()
+
+            if (matchingDateSession != null) {
+                sessionTime = matchingDateSession.sessionTime.ifBlank {
+                    currentGroup?.sessionTime?.ifBlank { timeFormat.format(Date()) } ?: timeFormat.format(Date())
+                }
+                lessonTopic = matchingDateSession.lessonTopic
+                val savedRecordsByStudent = records
+                    .filter { it.sessionId == matchingDateSession.id }
+                    .associateBy { it.studentId }
+
+                enrolledStudents.forEach { student ->
+                    val saved = savedRecordsByStudent[student.id]
+                    val normalizedStatus = when (saved?.status) {
+                        "غائب", "غياب بعذر" -> "غائب"
+                        else -> "حاضر"
+                    }
+                    attendanceMap[student.id] = normalizedStatus
+                    if (!saved?.notes.isNullOrBlank()) {
+                        notesMap[student.id] = saved?.notes.orEmpty()
+                    }
+                }
+            } else {
+                sessionTime = currentGroup?.sessionTime?.ifBlank { timeFormat.format(Date()) } ?: timeFormat.format(Date())
+                lessonTopic = ""
+                enrolledStudents.forEach { student ->
+                    attendanceMap[student.id] = "حاضر"
+                }
+            }
+
+            hasUnsavedChanges = false
+            loadedSessionKey = targetKey
+        } else {
+            // Ensure any newly added student in the same group/date gets a default status without overwriting user edits
+            enrolledStudents.forEach { student ->
+                if (!attendanceMap.containsKey(student.id)) {
+                    attendanceMap[student.id] = "حاضر"
+                }
+            }
+        }
+    }
+
+    val presentCount = enrolledStudents.count { (attendanceMap[it.id] ?: "حاضر") != "غائب" }
+    val absentCount = enrolledStudents.count { attendanceMap[it.id] == "غائب" }
+
     var showAbsenceDialog by remember { mutableStateOf(false) }
     var showCloudConfigDialog by remember { mutableStateOf(false) }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        // Cloud Sync & Connectivity Banner
-        item {
-            AttendanceCloudSyncBanner(
-                isOnline = isOnline,
-                isSyncing = isSyncing,
-                pendingSyncCount = pendingSyncCount,
-                hasCloudEndpoint = AttendanceCloudSyncService.isValidCloudEndpoint(settings?.cloudSyncUrl.orEmpty()),
-                lastSyncFeedback = lastSyncFeedback,
-                onTriggerSync = onTriggerSync,
-                onOpenCloudConfig = { showCloudConfigDialog = true },
-                onClearFeedback = onClearSyncFeedback
-            )
-        }
-
-        // Group Selector Chips per Group
-        item {
-            Text(
-                text = "اختر المجموعة الدراسية لتسجيل الحضور:",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(groups, key = { it.id }) { g ->
-                    val count = enrollments.count { it.groupId == g.id && it.isActive }
-                    FilterChip(
-                        selected = selectedGroupId == g.id,
-                        onClick = { selectedGroupId = g.id },
-                        label = { Text("${g.name} ($count)", fontSize = 12.sp) },
-                        modifier = Modifier
-                            .defaultMinSize(minHeight = 48.dp)
-                            .testTag("attendance_group_chip_${g.id}")
-                    )
-                }
-            }
-
-            if (currentGroup != null) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(10.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+    Column(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (groups.isEmpty()) {
+                item {
+                    ElevatedCard(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
                             Icon(
-                                Icons.Default.Groups,
+                                imageVector = Icons.Default.Groups,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(48.dp)
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Column {
-                                Text(
-                                    text = "${currentGroup.subject} • ${currentGroup.daysOfWeek}",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                                Text(
-                                    text = "${currentGroup.location} • ${enrolledStudents.size} طالب مسجل",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                        if (currentGroup.sessionTime.isNotBlank()) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(currentGroup.sessionTime, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Session Metadata Card
-        item {
-            ElevatedCard(
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = if (editingSessionId != null) "تعديل كشف الحصة المحفوظ" else "بيانات الحصة الدراسية",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        if (matchingDateSession != null && editingSessionId != matchingDateSession.id) {
-                            OutlinedButton(
-                                onClick = {
-                                    editingSessionId = matchingDateSession.id
-                                    sessionTime = matchingDateSession.sessionTime
-                                    lessonTopic = matchingDateSession.lessonTopic
-                                    teacherName = matchingDateSession.teacherName
-                                    val savedRecs = records.filter { it.sessionId == matchingDateSession.id }
-                                    savedRecs.forEach { rec ->
-                                        attendanceMap[rec.studentId] = rec.status
-                                        notesMap[rec.studentId] = rec.notes
-                                    }
-                                    Toast.makeText(context, "تم تحميل كشف تاريخ $sessionDate للتعديل", Toast.LENGTH_SHORT).show()
-                                },
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.defaultMinSize(minHeight = 40.dp)
+                            Text(
+                                text = "لا توجد مجموعات دراسية بعد",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "قم بإنشاء مجموعة دراسية وإضافة الطلاب إليها أولاً لتتمكن من تسجيل الحضور والغياب.",
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Button(
+                                onClick = onNavigateToGroups,
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.defaultMinSize(minHeight = 48.dp)
                             ) {
-                                Text("تحميل كشف اليوم", fontSize = 11.sp)
+                                Icon(Icons.Default.Groups, contentDescription = null, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("الذهاب إلى المجموعات", fontWeight = FontWeight.Bold)
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                }
+            } else {
+                // 1. Group Selection & Quick Info Card
+                item {
+                    ElevatedCard(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        OutlinedTextField(
-                            value = sessionDate,
-                            onValueChange = { sessionDate = it },
-                            label = { Text("تاريخ الحصة") },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = sessionTime,
-                            onValueChange = { sessionTime = it },
-                            label = { Text("موعد الحصة") },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = lessonTopic,
-                        onValueChange = { lessonTopic = it },
-                        label = { Text("موضوع الدرس أو محتوى الحصة") },
-                        placeholder = { Text("مثال: حل مسائل الديناميكا الحرارية...") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                }
-            }
-        }
-
-        // Quick Attendance Counters & "تحديد الجميع حاضرًا" button
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    StatusCounter(text = "$presentCount حاضر", bg = EduSuccessContainer, fg = EduSuccessGreen)
-                    StatusCounter(text = "$absentCount غائب", bg = EduErrorContainer, fg = EduErrorRed)
-                    StatusCounter(text = "$lateCount متأخر", bg = EduWarningContainer, fg = EduWarningAmber)
-                    StatusCounter(text = "$excusedCount عذر", bg = EduSkyContainer, fg = EduSkyTertiary)
-                }
-
-                Button(
-                    onClick = {
-                        enrolledStudents.forEach { s -> attendanceMap[s.id] = "حاضر" }
-                        Toast.makeText(context, "تم تحديد جميع الطلاب (${enrolledStudents.size}) كحاضرين", Toast.LENGTH_SHORT).show()
-                    },
-                    enabled = enrolledStudents.isNotEmpty(),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = EduTealPrimary),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .defaultMinSize(minHeight = 48.dp)
-                        .testTag("mark_all_present_button")
-                ) {
-                    Icon(Icons.Default.DoneAll, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("تحديد الجميع حاضرًا", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-
-        // WhatsApp Absence Notice Banner
-        if (absentCount > 0) {
-            item {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = EduErrorContainer,
-                    border = BorderStroke(1.dp, EduErrorRed.copy(alpha = 0.5f)),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showAbsenceDialog = true }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                            Icon(Icons.Default.Chat, contentDescription = null, tint = EduErrorRed, modifier = Modifier.size(24.dp))
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(
-                                    text = "إرسال إشعارات الغياب عبر واتساب ($absentCount طالب غائب)",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = EduErrorRed
-                                )
-                                Text(
-                                    text = "اضغط لفتح نافذة إرسال رسائل الغياب الفورية لأولياء الأمور",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                        Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = EduErrorRed, modifier = Modifier.size(22.dp))
-                    }
-                }
-            }
-        }
-
-        // Students Attendance Rows
-        if (enrolledStudents.isEmpty()) {
-            item {
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = "لا يوجد طلاب ملتحقون بهذه المجموعة حتى الآن. برجاء إضافة طلاب للمجموعة من قسم المجموعات.",
-                        modifier = Modifier.padding(16.dp),
-                        color = MaterialTheme.colorScheme.outline,
-                        fontSize = 12.sp
-                    )
-                }
-            }
-        } else {
-            items(enrolledStudents, key = { it.id }) { student ->
-                val currentStatus = attendanceMap[student.id] ?: "حاضر"
-                val studentNote = notesMap[student.id] ?: ""
-
-                Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 Text(
-                                    text = student.fullName,
+                                    text = "المجموعة الدراسية",
                                     fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
                                 )
-                                Text(
-                                    text = "ولي الأمر: ${student.parentPhone}",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.outline
-                                )
-                            }
-
-                            if ((currentStatus == "غائب" || currentStatus == "غياب بعذر") && student.parentPhone.isNotBlank()) {
-                                Button(
-                                    onClick = {
-                                        val msg = WhatsAppHelper.buildAbsenceMessage(
-                                            studentName = student.fullName,
-                                            groupName = currentGroup?.name ?: "",
-                                            sessionDate = sessionDate,
-                                            lessonTopic = lessonTopic,
-                                            centerName = settings?.centerName ?: "سنتر التفوق والريادة",
-                                            baseTemplate = settings?.absenceNoticeTemplate ?: ""
-                                        )
-                                        WhatsAppHelper.openWhatsAppChat(context, student.parentPhone, msg)
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = EduErrorRed),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.defaultMinSize(minHeight = 48.dp)
-                                ) {
-                                    Icon(Icons.Default.Chat, contentDescription = "إخطار غياب واتساب", modifier = Modifier.size(18.dp))
-                                    Spacer(modifier = Modifier.width(5.dp))
-                                    Text("إخطار واتساب", fontSize = 11.sp)
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            listOf(
-                                Triple("حاضر", EduSuccessGreen, EduSuccessContainer),
-                                Triple("غائب", EduErrorRed, EduErrorContainer),
-                                Triple("متأخر", EduWarningAmber, EduWarningContainer),
-                                Triple("غياب بعذر", EduSkyTertiary, EduSkyContainer)
-                            ).forEach { (status, color, _) ->
-                                val isSelected = currentStatus == status
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
-                                    color = if (isSelected) color else MaterialTheme.colorScheme.surfaceVariant,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .heightIn(min = 48.dp)
-                                        .clickable { attendanceMap[student.id] = status }
+                                    color = when {
+                                        hasUnsavedChanges -> eduWarningContainerColor()
+                                        matchingDateSession != null -> eduSuccessContainerColor()
+                                        else -> MaterialTheme.colorScheme.surfaceVariant
+                                    }
                                 ) {
-                                    Box(
-                                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = status,
-                                            fontSize = 11.sp,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
+                                    Text(
+                                        text = when {
+                                            hasUnsavedChanges -> "تعديلات غير محفوظة"
+                                            matchingDateSession != null -> "محفوظ في Room ✓"
+                                            else -> "كشف جديد"
+                                        },
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = when {
+                                            hasUnsavedChanges -> eduWarningContentColor()
+                                            matchingDateSession != null -> eduSuccessContentColor()
+                                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+
+                            ExposedDropdownMenuBox(
+                                expanded = groupMenuExpanded,
+                                onExpandedChange = { groupMenuExpanded = !groupMenuExpanded }
+                            ) {
+                                val selectedLabel = currentGroup?.let { g ->
+                                    val count = enrollments.count { it.groupId == g.id && it.isActive }
+                                    "${g.name} ($count طالب)"
+                                } ?: "اختر المجموعة"
+                                OutlinedTextField(
+                                    value = selectedLabel,
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    label = { Text("اختر المجموعة") },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Default.Groups,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    },
+                                    trailingIcon = {
+                                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = groupMenuExpanded)
+                                    },
+                                    modifier = Modifier
+                                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                                        .fillMaxWidth()
+                                        .testTag("attendance_group_dropdown")
+                                )
+                                ExposedDropdownMenu(
+                                    expanded = groupMenuExpanded,
+                                    onDismissRequest = { groupMenuExpanded = false }
+                                ) {
+                                    groups.forEach { g ->
+                                        val count = enrollments.count { it.groupId == g.id && it.isActive }
+                                        DropdownMenuItem(
+                                            text = {
+                                                Column {
+                                                    Text(
+                                                        text = "${g.name} ($count طالب)",
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        fontSize = 14.sp
+                                                    )
+                                                    if (g.subject.isNotBlank() || g.daysOfWeek.isNotBlank()) {
+                                                        Text(
+                                                            text = listOf(g.subject, g.daysOfWeek, g.sessionTime)
+                                                                .filter { it.isNotBlank() }
+                                                                .joinToString(" • "),
+                                                            fontSize = 11.sp,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                        )
+                                                    }
+                                                }
+                                            },
+                                            onClick = {
+                                                selectedGroupId = g.id
+                                                groupMenuExpanded = false
+                                            }
                                         )
                                     }
                                 }
                             }
-                        }
 
-                        if (currentStatus != "حاضر") {
-                            Spacer(modifier = Modifier.height(6.dp))
+                            if (groups.size > 1) {
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    items(groups, key = { it.id }) { g ->
+                                        val count = enrollments.count { it.groupId == g.id && it.isActive }
+                                        FilterChip(
+                                            selected = selectedGroupId == g.id,
+                                            onClick = { selectedGroupId = g.id },
+                                            label = { Text("${g.name} ($count)", fontSize = 12.sp) },
+                                            modifier = Modifier
+                                                .defaultMinSize(minHeight = 48.dp)
+                                                .testTag("attendance_group_chip_${g.id}")
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Session Date, Time & Topic
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = sessionDate,
+                                    onValueChange = { sessionDate = it },
+                                    label = { Text("تاريخ الحصة") },
+                                    trailingIcon = {
+                                        IconButton(onClick = { showDatePicker = true }) {
+                                            Icon(
+                                                Icons.Default.CalendarToday,
+                                                contentDescription = "اختيار التاريخ",
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .weight(1.2f)
+                                        .testTag("attendance_date_input"),
+                                    singleLine = true
+                                )
+                                OutlinedTextField(
+                                    value = sessionTime,
+                                    onValueChange = {
+                                        sessionTime = it
+                                        hasUnsavedChanges = true
+                                    },
+                                    label = { Text("الموعد") },
+                                    modifier = Modifier.weight(1f),
+                                    singleLine = true
+                                )
+                            }
+
                             OutlinedTextField(
-                                value = studentNote,
-                                onValueChange = { notesMap[student.id] = it },
-                                placeholder = { Text(if (currentStatus == "متأخر") "دقائق التأخير وملاحظات..." else "سبب الغياب / العذر...") },
+                                value = lessonTopic,
+                                onValueChange = {
+                                    lessonTopic = it
+                                    hasUnsavedChanges = true
+                                },
+                                label = { Text("عنوان أو ملاحظات الحصة (اختياري)") },
+                                placeholder = { Text("مثال: مراجعة الوحدة الأولى") },
                                 modifier = Modifier.fillMaxWidth(),
                                 singleLine = true
                             )
                         }
                     }
                 }
-            }
 
-            // Local Save & Cloud Sync Action Button
-            item {
-                Card(
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = EduSuccessContainer.copy(alpha = 0.55f)),
-                    border = BorderStroke(1.dp, EduSuccessGreen.copy(alpha = 0.4f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = {
-                                val targetSessionId = editingSessionId ?: UUID.randomUUID().toString()
-                                val session = AttendanceSessionEntity(
-                                    id = targetSessionId,
-                                    groupId = selectedGroupId,
-                                    sessionDate = sessionDate,
-                                    sessionTime = sessionTime,
-                                    teacherName = teacherName,
-                                    lessonTopic = lessonTopic,
-                                    createdAt = System.currentTimeMillis(),
-                                    isSynced = false,
-                                    syncStatus = if (isOnline) "بانتظار المزامنة" else "بانتظار توفر الإنترنت"
+                // 2. Summary Counters & Quick Bulk Actions
+                if (enrolledStudents.isNotEmpty()) {
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                AttendanceStatCard(
+                                    label = "إجمالي الطلاب",
+                                    count = enrolledStudents.size,
+                                    bg = MaterialTheme.colorScheme.primaryContainer,
+                                    fg = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.weight(1f)
                                 )
-                                val sessionRecords = enrolledStudents.map { s ->
-                                    val st = attendanceMap[s.id] ?: "حاضر"
-                                    AttendanceRecordEntity(
-                                        id = UUID.randomUUID().toString(),
-                                        sessionId = targetSessionId,
-                                        studentId = s.id,
-                                        groupId = selectedGroupId,
-                                        status = st,
-                                        notes = notesMap[s.id] ?: "",
-                                        excuseReason = if (st == "غياب بعذر") notesMap[s.id] else null
-                                    )
-                                }
-                                onSaveSession(session, sessionRecords)
-                                editingSessionId = null
-                                Toast.makeText(
-                                    context,
-                                    if (isOnline) {
-                                        "تم حفظ الكشف محليًا وجاري مزامنته مع السحابة..."
-                                    } else {
-                                        "تم حفظ الكشف محليًا — ستتم المزامنة مع السحابة تلقائيًا عند توفر الإنترنت"
+                                AttendanceStatCard(
+                                    label = "حاضر",
+                                    count = presentCount,
+                                    bg = eduSuccessContainerColor(),
+                                    fg = eduSuccessContentColor(),
+                                    modifier = Modifier.weight(1f)
+                                )
+                                AttendanceStatCard(
+                                    label = "غائب",
+                                    count = absentCount,
+                                    bg = eduErrorContainerColor(),
+                                    fg = eduErrorContentColor(),
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = {
+                                        enrolledStudents.forEach { s -> attendanceMap[s.id] = "حاضر" }
+                                        hasUnsavedChanges = true
+                                        Toast.makeText(
+                                            context,
+                                            "تم تحديد جميع الطلاب (${enrolledStudents.size}) كحاضرين",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
                                     },
-                                    Toast.LENGTH_LONG
-                                ).show()
-                                if (absentCount > 0) {
-                                    showAbsenceDialog = true
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = EduSuccessGreen,
+                                        contentColor = Color.White
+                                    ),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .defaultMinSize(minHeight = 48.dp)
+                                        .testTag("mark_all_present_button")
+                                ) {
+                                    Icon(Icons.Default.DoneAll, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("تحديد الكل حاضر", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                 }
-                            },
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = EduSuccessGreen),
+
+                                OutlinedButton(
+                                    onClick = {
+                                        enrolledStudents.forEach { s -> attendanceMap[s.id] = "غائب" }
+                                        hasUnsavedChanges = true
+                                        Toast.makeText(
+                                            context,
+                                            "تم تحديد جميع الطلاب (${enrolledStudents.size}) كغائبين",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    border = BorderStroke(1.dp, EduErrorRed.copy(alpha = 0.65f)),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = eduErrorContentColor()),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .defaultMinSize(minHeight = 48.dp)
+                                        .testTag("mark_all_absent_button")
+                                ) {
+                                    Icon(Icons.Default.PersonOff, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("تحديد الكل غائب", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            if (enrolledStudents.size >= 5) {
+                                OutlinedTextField(
+                                    value = studentSearchQuery,
+                                    onValueChange = { studentSearchQuery = it },
+                                    placeholder = { Text("ابحث عن طالب بالاسم أو الهاتف...") },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Search, contentDescription = null)
+                                    },
+                                    trailingIcon = {
+                                        if (studentSearchQuery.isNotEmpty()) {
+                                            IconButton(onClick = { studentSearchQuery = "" }) {
+                                                Icon(Icons.Default.Close, contentDescription = "مسح البحث")
+                                            }
+                                        }
+                                    },
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("attendance_student_search")
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 3. WhatsApp Batch Absence Alert Banner
+                if (absentCount > 0) {
+                    item {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = eduErrorContainerColor(),
+                            border = BorderStroke(1.dp, eduErrorContentColor().copy(alpha = 0.4f)),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(min = 52.dp)
-                                .testTag("save_local_attendance_button")
+                                .clickable { showAbsenceDialog = true }
                         ) {
-                            Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(24.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("حفظ الكشف المحلي", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                    Icon(
+                                        Icons.Default.Chat,
+                                        contentDescription = null,
+                                        tint = eduErrorContentColor(),
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column {
+                                        Text(
+                                            text = "إرسال إشعار غياب لولي الأمر ($absentCount طالب)",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = eduErrorContentColor()
+                                        )
+                                        Text(
+                                            text = "اضغط لإرسال رسائل واتساب الفورية للطلاب الغائبين",
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                Icon(
+                                    Icons.Default.NotificationsActive,
+                                    contentDescription = null,
+                                    tint = EduErrorRed,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
+                    }
+                }
 
+                // 4. Student List Header
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Text(
-                            text = "يحفظ الكشف في قاعدة البيانات المحلية فورًا، وتتم مزامنته مع السحابة تلقائيًا عند توفر الاتصال بالإنترنت.",
-                            fontSize = 11.sp,
+                            text = "قائمة طلاب المجموعة (${filteredStudents.size})",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        if (currentGroup != null && currentGroup.sessionTime.isNotBlank()) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.Schedule,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = currentGroup.sessionTime,
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 5. Group Students List with Clear "حاضر" / "غائب" Choices
+                if (enrolledStudents.isEmpty()) {
+                    item {
+                        OutlinedCard(
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(20.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.PersonAdd,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(40.dp)
+                                )
+                                Text(
+                                    text = "لا يوجد طلاب مسجلون في هذه المجموعة",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "أضف طلاباً إلى المجموعة أولاً لتظهر أسماؤهم هنا لتسجيل الحضور والغياب.",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (selectedGroupId.isNotBlank()) {
+                                    OutlinedButton(
+                                        onClick = { onNavigateToGroupDetail(selectedGroupId) },
+                                        shape = RoundedCornerShape(10.dp),
+                                        modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                                    ) {
+                                        Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("إدارة طلاب المجموعة")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else if (filteredStudents.isEmpty()) {
+                    item {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "لا يوجد طالب يطابق عبارة البحث \"$studentSearchQuery\".",
+                                modifier = Modifier.padding(16.dp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                } else {
+                    itemsIndexed(filteredStudents, key = { _, s -> s.id }) { index, student ->
+                        val currentStatus = if (attendanceMap[student.id] == "غائب") "غائب" else "حاضر"
+                        val isPresent = currentStatus == "حاضر"
+                        val studentNote = notesMap[student.id] ?: ""
+
+                        ElevatedCard(
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.elevatedCardColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("attendance_student_card_${student.id}")
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .clip(CircleShape)
+                                                .background(
+                                                    if (isPresent) eduSuccessContainerColor()
+                                                    else eduErrorContainerColor()
+                                                ),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "${index + 1}",
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (isPresent) eduSuccessContentColor() else eduErrorContentColor()
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Column {
+                                            Text(
+                                                text = student.fullName,
+                                                fontSize = 15.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            val contactLine = if (student.parentPhone.isNotBlank()) {
+                                                "ولي الأمر: ${student.parentPhone}"
+                                            } else {
+                                                "الهاتف: ${student.phone}"
+                                            }
+                                            Text(
+                                                text = contactLine,
+                                                fontSize = 12.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+
+                                    if (!isPresent && student.parentPhone.isNotBlank()) {
+                                        IconButton(
+                                            onClick = {
+                                                val msg = WhatsAppHelper.buildAbsenceMessage(
+                                                    studentName = student.fullName,
+                                                    groupName = currentGroup?.name ?: "",
+                                                    sessionDate = sessionDate,
+                                                    lessonTopic = lessonTopic,
+                                                    centerName = settings?.centerName ?: "سنتر التفوق والريادة",
+                                                    baseTemplate = settings?.absenceNoticeTemplate ?: ""
+                                                )
+                                                WhatsAppHelper.openWhatsAppChat(context, student.parentPhone, msg)
+                                            },
+                                            modifier = Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Chat,
+                                                contentDescription = "إرسال إخطار غياب واتساب",
+                                                tint = EduErrorRed,
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // Clear "حاضر" / "غائب" Toggle Buttons
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = if (isPresent) EduSuccessGreen else MaterialTheme.colorScheme.surfaceVariant,
+                                        border = if (!isPresent) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant) else null,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .heightIn(min = 48.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .clickable {
+                                                attendanceMap[student.id] = "حاضر"
+                                                hasUnsavedChanges = true
+                                            }
+                                            .testTag("student_present_${student.id}")
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                            horizontalArrangement = Arrangement.Center,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.CheckCircle,
+                                                contentDescription = null,
+                                                tint = if (isPresent) Color.White else eduSuccessContentColor(),
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "حاضر",
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (isPresent) Color.White else MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                    }
+
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = if (!isPresent) EduErrorRed else MaterialTheme.colorScheme.surfaceVariant,
+                                        border = if (isPresent) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant) else null,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .heightIn(min = 48.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .clickable {
+                                                attendanceMap[student.id] = "غائب"
+                                                hasUnsavedChanges = true
+                                            }
+                                            .testTag("student_absent_${student.id}")
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                            horizontalArrangement = Arrangement.Center,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Cancel,
+                                                contentDescription = null,
+                                                tint = if (!isPresent) Color.White else eduErrorContentColor(),
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "غائب",
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (!isPresent) Color.White else MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                    }
+                                }
+
+                                if (!isPresent) {
+                                    OutlinedTextField(
+                                        value = studentNote,
+                                        onValueChange = {
+                                            notesMap[student.id] = it
+                                            hasUnsavedChanges = true
+                                        },
+                                        placeholder = { Text("سبب الغياب أو ملاحظة (اختياري)...") },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        singleLine = true
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 6. Saved Attendance Sessions History in Room
+                item {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.History,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "سجل حصص المجموعة المحفوظة (${groupSessions.size})",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        if (groupSessions.isNotEmpty()) {
+                            IconButton(
+                                onClick = {
+                                    val json = AttendanceCloudSyncService.buildBatchExportJson(
+                                        sessions = groupSessions,
+                                        allRecords = records,
+                                        groups = groups,
+                                        students = students,
+                                        centerName = settings?.centerName ?: "سنتر التفوق والريادة"
+                                    )
+                                    ExportHelper.shareText(
+                                        context,
+                                        "كشوف حضور ${currentGroup?.name ?: ""}",
+                                        json
+                                    )
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Default.Share,
+                                    contentDescription = "تصدير كشوف المجموعة",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (groupSessions.isEmpty()) {
+                    item {
+                        Text(
+                            text = "لم يتم حفظ كشوف حضور لهذه المجموعة في قاعدة البيانات بعد.",
+                            fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                } else {
+                    items(groupSessions, key = { it.id }) { sess ->
+                        val sessRecords = records.filter { it.sessionId == sess.id }
+                        val sessPresent = sessRecords.count { it.status != "غائب" && it.status != "غياب بعذر" }
+                        val sessAbsent = sessRecords.count { it.status == "غائب" || it.status == "غياب بعذر" }
+                        val isCurrentlyLoaded = sess.sessionDate == sessionDate
+
+                        Card(
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isCurrentlyLoaded) {
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                                } else {
+                                    MaterialTheme.colorScheme.surface
+                                }
+                            ),
+                            border = if (isCurrentlyLoaded) {
+                                BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f))
+                            } else null,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    sessionDate = sess.sessionDate
+                                    Toast.makeText(
+                                        context,
+                                        "تم عرض كشف يوم ${sess.sessionDate}",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "${sess.sessionDate} • ${sess.sessionTime}",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        if (sess.lessonTopic.isNotBlank()) {
+                                            Text(
+                                                text = sess.lessonTopic,
+                                                fontSize = 11.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (sess.isSynced) eduSuccessContainerColor() else eduSkyContainerColor()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = if (sess.isSynced) Icons.Default.CloudDone else Icons.Default.CheckCircle,
+                                                contentDescription = null,
+                                                tint = if (sess.isSynced) eduSuccessContentColor() else MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = if (sess.isSynced) "متزامن" else "محفوظ محلياً",
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (sess.isSynced) eduSuccessContentColor() else MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    }
+                                }
+                                Text(
+                                    text = "حاضر: $sessPresent • غائب: $sessAbsent • الإجمالي: ${sessRecords.size} (اضغط للعرض أو التعديل)",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
                 }
+
+                // 7. Compact Cloud Sync Banner
+                item {
+                    AttendanceCloudSyncBanner(
+                        isOnline = isOnline,
+                        isSyncing = isSyncing,
+                        pendingSyncCount = pendingSyncCount,
+                        hasCloudEndpoint = AttendanceCloudSyncService.isValidCloudEndpoint(settings?.cloudSyncUrl.orEmpty()),
+                        lastSyncFeedback = lastSyncFeedback,
+                        onTriggerSync = onTriggerSync,
+                        onOpenCloudConfig = { showCloudConfigDialog = true },
+                        onClearFeedback = onClearSyncFeedback
+                    )
+                }
+
+                item { Spacer(modifier = Modifier.height(12.dp)) }
             }
         }
 
-        // Saved Attendance History & Sync Queue for Selected Group
-        item {
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+        // Sticky Bottom Save Bar for Room Database Persistence
+        if (groups.isNotEmpty() && enrolledStudents.isNotEmpty()) {
+            Surface(
+                tonalElevation = 6.dp,
+                shadowElevation = 8.dp,
+                color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Text(
-                    text = "سجل كشوف المجموعة وحالة المزامنة (${groupSessions.size})",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                if (groupSessions.isNotEmpty()) {
-                    IconButton(
-                        onClick = {
-                            val json = AttendanceCloudSyncService.buildBatchExportJson(
-                                sessions = groupSessions,
-                                allRecords = records,
-                                groups = groups,
-                                students = students,
-                                centerName = settings?.centerName ?: "سنتر التفوق والريادة"
-                            )
-                            ExportHelper.shareText(
-                                context,
-                                "كشوف حضور ${currentGroup?.name ?: ""}",
-                                json
-                            )
-                        }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            Icons.Default.Share,
-                            contentDescription = "تصدير كشوف المجموعة JSON",
-                            tint = EduTealPrimary
+                        Text(
+                            text = "حاضر: $presentCount • غائب: $absentCount",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "التاريخ: $sessionDate",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    Button(
+                        onClick = {
+                            val targetSessionId = editingSessionId ?: UUID.randomUUID().toString()
+                            val session = AttendanceSessionEntity(
+                                id = targetSessionId,
+                                groupId = selectedGroupId,
+                                sessionDate = sessionDate.trim(),
+                                sessionTime = sessionTime.trim(),
+                                teacherName = teacherName,
+                                lessonTopic = lessonTopic.trim(),
+                                createdAt = System.currentTimeMillis(),
+                                isSynced = false,
+                                syncStatus = if (isOnline) "بانتظار المزامنة" else "بانتظار توفر الإنترنت"
+                            )
+                            val sessionRecords = enrolledStudents.map { student ->
+                                val status = if (attendanceMap[student.id] == "غائب") "غائب" else "حاضر"
+                                AttendanceRecordEntity(
+                                    id = UUID.randomUUID().toString(),
+                                    sessionId = targetSessionId,
+                                    studentId = student.id,
+                                    groupId = selectedGroupId,
+                                    status = status,
+                                    notes = notesMap[student.id]?.trim().orEmpty(),
+                                    excuseReason = null
+                                )
+                            }
+                            onSaveSession(session, sessionRecords)
+                            hasUnsavedChanges = false
+                            Toast.makeText(
+                                context,
+                                "تم حفظ حضور وغياب المجموعة (${enrolledStudents.size} طالب) في قاعدة البيانات بنجاح",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 52.dp)
+                            .testTag("save_local_attendance_button")
+                    ) {
+                        Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(22.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (editingSessionId != null) {
+                                "تحديث الحضور والغياب في قاعدة البيانات"
+                            } else {
+                                "حفظ الحضور والغياب في قاعدة البيانات"
+                            },
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
             }
         }
+    }
 
-        if (groupSessions.isEmpty()) {
-            item {
-                Text(
-                    text = "لم يتم حفظ كشوف حضور لهذه المجموعة بعد.",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.outline
-                )
-            }
-        } else {
-            items(groupSessions, key = { it.id }) { sess ->
-                val sessRecords = records.filter { it.sessionId == sess.id }
-                val sessPresent = sessRecords.count { it.status == "حاضر" }
-                val sessAbsent = sessRecords.count { it.status == "غائب" }
-                val statusColor = when {
-                    sess.isSynced -> EduSuccessGreen
-                    sess.syncStatus.contains("فشل") -> EduErrorRed
-                    else -> EduWarningAmber
+    if (showDatePicker) {
+        val initialMillis = remember(sessionDate) {
+            try {
+                val utcFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+                    timeZone = TimeZone.getTimeZone("UTC")
                 }
-                val statusBg = when {
-                    sess.isSynced -> EduSuccessContainer
-                    sess.syncStatus.contains("فشل") -> EduErrorContainer
-                    else -> EduWarningContainer
-                }
-
-                Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "${sess.sessionDate} • ${sess.sessionTime}",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                if (sess.lessonTopic.isNotBlank()) {
-                                    Text(
-                                        text = sess.lessonTopic,
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            }
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = statusBg
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = if (sess.isSynced) Icons.Default.CloudDone else Icons.Default.CloudQueue,
-                                        contentDescription = null,
-                                        tint = statusColor,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = sess.syncStatus,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = statusColor
-                                    )
-                                }
-                            }
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "إجمالي: ${sessRecords.size} • حاضر: $sessPresent • غائب: $sessAbsent",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.outline
-                            )
-                            if (!sess.isSynced) {
-                                OutlinedButton(
-                                    onClick = onTriggerSync,
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.defaultMinSize(minHeight = 40.dp)
-                                ) {
-                                    Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(15.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("مزامنة", fontSize = 11.sp)
-                                }
-                            }
-                        }
-
-                        if (!sess.syncError.isNullOrBlank()) {
-                            Text(
-                                text = "ملاحظة المزامنة: ${sess.syncError}",
-                                fontSize = 10.sp,
-                                color = EduErrorRed
-                            )
-                        }
-                    }
-                }
+                utcFormat.parse(sessionDate)?.time ?: System.currentTimeMillis()
+            } catch (_: Exception) {
+                System.currentTimeMillis()
             }
         }
-
-        item { Spacer(modifier = Modifier.height(30.dp)) }
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            val utcFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+                                timeZone = TimeZone.getTimeZone("UTC")
+                            }
+                            sessionDate = utcFormat.format(Date(millis))
+                        }
+                        showDatePicker = false
+                    }
+                ) {
+                    Text("تأكيد")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("إلغاء")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
     }
 
     if (showAbsenceDialog) {
-        val absentStudents = enrolledStudents.filter {
-            attendanceMap[it.id] == "غائب" || attendanceMap[it.id] == "غياب بعذر"
-        }
+        val absentStudents = enrolledStudents.filter { attendanceMap[it.id] == "غائب" }
         AbsenceNoticeBatchDialog(
             absentStudents = absentStudents,
             groupName = currentGroup?.name ?: "",
@@ -789,6 +1246,39 @@ fun AttendanceScreen(
 }
 
 @Composable
+private fun AttendanceStatCard(
+    label: String,
+    count: Int,
+    bg: Color,
+    fg: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = bg,
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 8.dp, horizontal = 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "$count",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = fg
+            )
+            Text(
+                text = label,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                color = fg
+            )
+        }
+    }
+}
+
+@Composable
 private fun AttendanceCloudSyncBanner(
     isOnline: Boolean,
     isSyncing: Boolean,
@@ -800,14 +1290,14 @@ private fun AttendanceCloudSyncBanner(
     onClearFeedback: () -> Unit
 ) {
     val bannerBg = when {
-        pendingSyncCount > 0 -> EduWarningContainer.copy(alpha = 0.7f)
-        isOnline -> EduSuccessContainer.copy(alpha = 0.65f)
-        else -> EduSkyContainer.copy(alpha = 0.6f)
+        pendingSyncCount > 0 -> eduWarningContainerColor()
+        isOnline -> eduSuccessContainerColor()
+        else -> eduSkyContainerColor()
     }
     val iconTint = when {
-        pendingSyncCount > 0 -> EduWarningAmber
-        isOnline -> EduSuccessGreen
-        else -> EduSkyTertiary
+        pendingSyncCount > 0 -> eduWarningContentColor()
+        isOnline -> eduSuccessContentColor()
+        else -> MaterialTheme.colorScheme.tertiary
     }
 
     Surface(
@@ -835,7 +1325,7 @@ private fun AttendanceCloudSyncBanner(
                         CircularProgressIndicator(
                             modifier = Modifier.size(22.dp),
                             strokeWidth = 2.5.dp,
-                            color = EduTealPrimary
+                            color = MaterialTheme.colorScheme.primary
                         )
                     } else {
                         Icon(
@@ -846,13 +1336,13 @@ private fun AttendanceCloudSyncBanner(
                             },
                             contentDescription = "حالة الاتصال والمزامنة",
                             tint = iconTint,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                     Spacer(modifier = Modifier.width(10.dp))
                     Column {
                         Text(
-                            text = if (isOnline) "متصل بالإنترنت • مزامنة سحابية نشطة" else "غير متصل بالإنترنت • الوضع المحلي (أوفلاين)",
+                            text = if (isOnline) "متصل بالإنترنت • مزامنة سحابية نشطة" else "الوضع المحلي (أوفلاين)",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -860,13 +1350,13 @@ private fun AttendanceCloudSyncBanner(
                         Text(
                             text = when {
                                 pendingSyncCount > 0 && !isOnline ->
-                                    "يوجد $pendingSyncCount كشف محفوظ محليًا وبانتظار عودة الإنترنت للمزامنة"
+                                    "يوجد $pendingSyncCount كشف محفوظ محلياً وبانتظار الإنترنت للمزامنة"
                                 pendingSyncCount > 0 && !hasCloudEndpoint ->
-                                    "يوجد $pendingSyncCount كشف محلي — اضغط «إعداد السحابة» لإضافة رابط الرفع"
+                                    "يوجد $pendingSyncCount كشف محفوظ محلياً في Room"
                                 pendingSyncCount > 0 ->
                                     "يوجد $pendingSyncCount كشف جاهز للمزامنة السحابية"
                                 else ->
-                                    "جميع كشوف الحضور متزامنة ومؤمّنة بالكامل"
+                                    "جميع كشوف الحضور محفوظة ومؤمّنة في Room"
                             },
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -883,7 +1373,10 @@ private fun AttendanceCloudSyncBanner(
                     onClick = onTriggerSync,
                     enabled = !isSyncing,
                     shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = EduTealPrimary),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
                     modifier = Modifier
                         .weight(1f)
                         .defaultMinSize(minHeight = 48.dp)
@@ -929,21 +1422,5 @@ private fun AttendanceCloudSyncBanner(
                 }
             }
         }
-    }
-}
-
-@Composable
-fun StatusCounter(text: String, bg: Color, fg: Color) {
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = bg
-    ) {
-        Text(
-            text = text,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            color = fg,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
-        )
     }
 }

@@ -26,7 +26,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Class
 import androidx.compose.material.icons.filled.EventNote
-import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.HowToReg
 import androidx.compose.material.icons.filled.LocationOn
@@ -78,14 +77,13 @@ import com.example.data.model.StudentEntity
 import com.example.ui.OverdueItem
 import com.example.ui.ScreenDestination
 import com.example.ui.StudentAttendanceStat
-import com.example.ui.theme.EduErrorContainer
 import com.example.ui.theme.EduErrorRed
-import com.example.ui.theme.EduSkyTertiary
-import com.example.ui.theme.EduSuccessContainer
 import com.example.ui.theme.EduSuccessGreen
-import com.example.ui.theme.EduTealPrimary
-import com.example.ui.theme.EduWarningAmber
-import com.example.ui.theme.EduWarningContainer
+import com.example.ui.theme.eduErrorContainerColor
+import com.example.ui.theme.eduErrorContentColor
+import com.example.ui.theme.eduSuccessContainerColor
+import com.example.ui.theme.eduSuccessContentColor
+import com.example.ui.theme.eduWarningContentColor
 import com.example.util.WhatsAppHelper
 
 @Composable
@@ -158,12 +156,15 @@ fun DashboardScreen(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
-                            Text(
-                                text = "العام الدراسي: ${settings?.academicYear ?: "2024 - 2025"}",
-                                fontSize = 13.sp,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
-                                fontWeight = FontWeight.Medium
-                            )
+                            val displayAcademicYear = settings?.academicYear?.trim().orEmpty()
+                            if (displayAcademicYear.isNotEmpty() && displayAcademicYear != "2024 - 2025") {
+                                Text(
+                                    text = "العام الدراسي: $displayAcademicYear",
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                         }
                         Surface(
                             shape = RoundedCornerShape(20.dp),
@@ -172,7 +173,7 @@ fun DashboardScreen(
                             Text(
                                 text = "لوحة التحكم الحية",
                                 fontSize = 11.sp,
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onPrimary,
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                                 fontWeight = FontWeight.Bold
                             )
@@ -207,7 +208,7 @@ fun DashboardScreen(
                     icon = Icons.Default.PersonAdd,
                     title = "إضافة طالب",
                     modifier = Modifier.weight(1f),
-                    onClick = { onNavigate(ScreenDestination.STUDENTS) }
+                    onClick = { onNavigate(ScreenDestination.ADD_STUDENT) }
                 )
                 QuickActionButton(
                     icon = Icons.Default.Class,
@@ -247,12 +248,6 @@ fun DashboardScreen(
                     modifier = Modifier.weight(1f),
                     onClick = { onNavigate(ScreenDestination.OVERDUE) }
                 )
-                QuickActionButton(
-                    icon = Icons.Default.FileDownload,
-                    title = "تحميل APK",
-                    modifier = Modifier.weight(1f),
-                    onClick = { onNavigate(ScreenDestination.BACKUP) }
-                )
             }
         }
 
@@ -267,8 +262,8 @@ fun DashboardScreen(
                     Icon(
                         imageVector = Icons.Default.Groups,
                         contentDescription = null,
-                        tint = EduTealPrimary,
-                        modifier = Modifier.size(22.dp)
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(28.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
@@ -300,7 +295,7 @@ fun DashboardScreen(
                             .heightIn(min = 48.dp)
                             .testTag("dashboard_add_group_button")
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(22.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("إضافة مجموعة", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
@@ -313,7 +308,7 @@ fun DashboardScreen(
                 ElevatedCard(
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.elevatedCardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                        containerColor = MaterialTheme.colorScheme.surface
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -328,8 +323,8 @@ fun DashboardScreen(
                         Icon(
                             imageVector = Icons.Default.Class,
                             contentDescription = null,
-                            tint = EduTealPrimary,
-                            modifier = Modifier.size(40.dp)
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(52.dp)
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
@@ -347,11 +342,14 @@ fun DashboardScreen(
                         Spacer(modifier = Modifier.height(12.dp))
                         Button(
                             onClick = { showAddGroupDialog = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = EduTealPrimary),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ),
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.heightIn(min = 48.dp)
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(22.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("إضافة أول مجموعة", fontWeight = FontWeight.Bold)
                         }
@@ -391,7 +389,7 @@ fun DashboardScreen(
                         primaryValue = "$totalStudents طالب",
                         subtitle = "$activeStudents طالب نشط",
                         icon = Icons.Default.People,
-                        accentColor = EduTealPrimary,
+                        accentColor = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.weight(1f).clickable { onNavigate(ScreenDestination.STUDENTS) }
                     )
                     StatCard(
@@ -399,7 +397,7 @@ fun DashboardScreen(
                         primaryValue = "$totalGroups مجموعات",
                         subtitle = "مواعيد منتظمة",
                         icon = Icons.Default.Class,
-                        accentColor = EduSkyTertiary,
+                        accentColor = MaterialTheme.colorScheme.tertiary,
                         modifier = Modifier.weight(1f).clickable { onNavigate(ScreenDestination.GROUPS) }
                     )
                 }
@@ -413,7 +411,7 @@ fun DashboardScreen(
                         primaryValue = "${totalPaidAmount.toInt()} $currency",
                         subtitle = "مستحق: ${totalExpectedAmount.toInt()} $currency",
                         icon = Icons.Default.MonetizationOn,
-                        accentColor = EduSuccessGreen,
+                        accentColor = eduSuccessContentColor(),
                         modifier = Modifier.weight(1f).clickable { onNavigate(ScreenDestination.FINANCIAL_REPORTS) }
                     )
                     StatCard(
@@ -421,7 +419,7 @@ fun DashboardScreen(
                         primaryValue = "${totalRemainingAmount.toInt()} $currency",
                         subtitle = "${overdueItems.size} اشتراك متأخر",
                         icon = Icons.Default.MoneyOff,
-                        accentColor = EduErrorRed,
+                        accentColor = eduErrorContentColor(),
                         modifier = Modifier.weight(1f).clickable { onNavigate(ScreenDestination.OVERDUE) }
                     )
                 }
@@ -435,7 +433,7 @@ fun DashboardScreen(
                         primaryValue = "$totalPresent حضور",
                         subtitle = "$totalAbsent غياب • $totalLate متأخر",
                         icon = Icons.Default.HowToReg,
-                        accentColor = EduWarningAmber,
+                        accentColor = MaterialTheme.colorScheme.secondary,
                         modifier = Modifier.weight(1f).clickable { onNavigate(ScreenDestination.ATTENDANCE_REPORTS) }
                     )
                     StatCard(
@@ -443,7 +441,7 @@ fun DashboardScreen(
                         primaryValue = "$paidSubsCount مدفوع",
                         subtitle = "$partialSubsCount جزئي • $unpaidSubsCount لم يدفع",
                         icon = Icons.Default.EventNote,
-                        accentColor = MaterialTheme.colorScheme.secondary,
+                        accentColor = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.weight(1f).clickable { onNavigate(ScreenDestination.PAYMENTS) }
                     )
                 }
@@ -454,7 +452,7 @@ fun DashboardScreen(
         if (frequentAbsentees.isNotEmpty()) {
             item {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = EduErrorContainer),
+                    colors = CardDefaults.cardColors(containerColor = eduErrorContainerColor()),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -466,14 +464,15 @@ fun DashboardScreen(
                             Icon(
                                 imageVector = Icons.Default.Warning,
                                 contentDescription = null,
-                                tint = EduErrorRed
+                                tint = eduErrorContentColor(),
+                                modifier = Modifier.size(28.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "تنبيه غياب متكرر (${frequentAbsentees.size} طلاب)",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = EduErrorRed
+                                color = eduErrorContentColor()
                             )
                         }
                         Spacer(modifier = Modifier.height(6.dp))
@@ -502,7 +501,7 @@ fun DashboardScreen(
                                     Text(
                                         text = "غاب ${stat.absentCount} حصص (نسبة حضور: ${stat.attendancePercentage}%)",
                                         fontSize = 11.sp,
-                                        color = EduErrorRed
+                                        color = eduErrorContentColor()
                                     )
                                 }
                                 if (student != null && (student.parentPhone.isNotBlank() || student.phone.isNotBlank())) {
@@ -566,13 +565,13 @@ fun DashboardScreen(
         if (overdueItems.isEmpty()) {
             item {
                 Surface(
-                    color = EduSuccessContainer,
+                    color = eduSuccessContainerColor(),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
                         text = "ممتاز! لا يوجد أي مبالغ متأخرة على الطلاب حالياً.",
-                        color = EduSuccessGreen,
+                        color = eduSuccessContentColor(),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium,
                         modifier = Modifier.padding(14.dp)
@@ -669,13 +668,13 @@ fun DashboardScreen(
                         }
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = EduSuccessContainer
+                            color = eduSuccessContainerColor()
                         ) {
                             Text(
                                 text = "+${payment.amountPaid.toInt()} $currency",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = EduSuccessGreen,
+                                color = eduSuccessContentColor(),
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                         }
@@ -692,15 +691,15 @@ fun DashboardScreen(
         // Floating Action Button to add a new study group right from Home
         ExtendedFloatingActionButton(
             onClick = { showAddGroupDialog = true },
-            containerColor = EduTealPrimary,
-            contentColor = Color.White,
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(16.dp)
                 .testTag("dashboard_add_group_fab"),
             icon = {
-                Icon(Icons.Default.Add, contentDescription = "إضافة مجموعة جديدة", modifier = Modifier.size(24.dp))
+                Icon(Icons.Default.Add, contentDescription = "إضافة مجموعة جديدة", modifier = Modifier.size(28.dp))
             },
             text = {
                 Text("إضافة مجموعة جديدة", fontWeight = FontWeight.Bold)
@@ -749,11 +748,14 @@ private fun DashboardGroupSummaryCard(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(44.dp)
-                            .clip(RoundedCornerShape(12.dp))
+                            .size(52.dp)
+                            .clip(RoundedCornerShape(14.dp))
                             .background(
                                 Brush.linearGradient(
-                                    colors = listOf(EduTealPrimary, EduSkyTertiary)
+                                    colors = listOf(
+                                        MaterialTheme.colorScheme.primary,
+                                        MaterialTheme.colorScheme.tertiary
+                                    )
                                 )
                             ),
                         contentAlignment = Alignment.Center
@@ -761,8 +763,8 @@ private fun DashboardGroupSummaryCard(
                         Icon(
                             imageVector = Icons.Default.Class,
                             contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(22.dp)
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(28.dp)
                         )
                     }
                     Spacer(modifier = Modifier.width(10.dp))
@@ -779,7 +781,7 @@ private fun DashboardGroupSummaryCard(
                             text = "${group.subject} • ${group.grade}",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
-                            color = EduTealPrimary
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
@@ -796,7 +798,7 @@ private fun DashboardGroupSummaryCard(
                             imageVector = Icons.Default.People,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
@@ -821,7 +823,7 @@ private fun DashboardGroupSummaryCard(
                         imageVector = Icons.Default.Schedule,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
@@ -835,13 +837,13 @@ private fun DashboardGroupSummaryCard(
 
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = EduSuccessContainer
+                    color = eduSuccessContainerColor()
                 ) {
                     Text(
                         text = "${group.defaultMonthlyFee.toInt()} $currency/شهر",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = EduSuccessGreen,
+                        color = eduSuccessContentColor(),
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                     )
                 }
@@ -854,7 +856,7 @@ private fun DashboardGroupSummaryCard(
                         imageVector = Icons.Default.LocationOn,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.size(15.dp)
+                        modifier = Modifier.size(19.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
@@ -875,7 +877,7 @@ private fun DashboardGroupSummaryCard(
                 OutlinedButton(
                     onClick = onOpenDetails,
                     shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, EduTealPrimary.copy(alpha = 0.5f)),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
                     modifier = Modifier
                         .weight(1f)
                         .heightIn(min = 48.dp)
@@ -885,12 +887,15 @@ private fun DashboardGroupSummaryCard(
                 Button(
                     onClick = onTakeAttendance,
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = EduTealPrimary),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
                     modifier = Modifier
                         .weight(1f)
                         .heightIn(min = 48.dp)
                 ) {
-                    Icon(Icons.Default.HowToReg, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.HowToReg, contentDescription = null, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("تسجيل الحضور", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
@@ -909,8 +914,9 @@ fun QuickActionButton(
     Surface(
         modifier = modifier.clickable { onClick() },
         shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        tonalElevation = 1.dp
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)),
+        shadowElevation = 1.dp
     ) {
         Column(
             modifier = Modifier.padding(vertical = 12.dp, horizontal = 4.dp),
@@ -919,7 +925,7 @@ fun QuickActionButton(
         ) {
             Box(
                 modifier = Modifier
-                    .size(56.dp)
+                    .size(68.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
@@ -927,8 +933,8 @@ fun QuickActionButton(
                 Icon(
                     imageVector = icon,
                     contentDescription = title,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(32.dp)
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(38.dp)
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
@@ -972,7 +978,7 @@ fun StatCard(
                 )
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(52.dp)
                         .clip(CircleShape)
                         .background(accentColor.copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
@@ -981,7 +987,7 @@ fun StatCard(
                         imageVector = icon,
                         contentDescription = null,
                         tint = accentColor,
-                        modifier = Modifier.size(26.dp)
+                        modifier = Modifier.size(32.dp)
                     )
                 }
             }
@@ -1040,12 +1046,12 @@ fun OverdueRowCard(
                         text = "متبقي: ${item.remaining.toInt()} $currency",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
-                        color = EduErrorRed
+                        color = eduErrorContentColor()
                     )
                     Text(
                         text = if (item.totalPaid > 0) "دفع جزئي: ${item.totalPaid.toInt()}" else "لم يدفع",
                         fontSize = 10.sp,
-                        color = if (item.totalPaid > 0) EduWarningAmber else EduErrorRed
+                        color = if (item.totalPaid > 0) eduWarningContentColor() else eduErrorContentColor()
                     )
                 }
             }
@@ -1057,7 +1063,10 @@ fun OverdueRowCard(
                 Button(
                     onClick = onPayClick,
                     shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = EduSuccessGreen),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = EduSuccessGreen,
+                        contentColor = Color.White
+                    ),
                     modifier = Modifier.weight(1f)
                 ) {
                     Text("تسجيل دفع", fontSize = 11.sp)

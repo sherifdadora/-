@@ -151,7 +151,9 @@ object ExportHelper {
         sb.append("📋 كشف حساب الطالب: ").append(studentName).append("\n")
         sb.append("📞 الهاتف: ").append(phone).append("\n")
         sb.append("👥 المجموعة: ").append(groupName).append("\n")
-        sb.append("📅 العام الدراسي: ").append(academicYear).append("\n")
+        if (academicYear.isNotBlank()) {
+            sb.append("📅 العام الدراسي: ").append(academicYear).append("\n")
+        }
         sb.append("───────────────────────\n")
         sb.append("💰 إجمالي الاشتراكات: ").append(totalExpected.toInt()).append(" ").append(currency).append("\n")
         sb.append("✅ إجمالي المدفوع: ").append(totalPaid.toInt()).append(" ").append(currency).append("\n")

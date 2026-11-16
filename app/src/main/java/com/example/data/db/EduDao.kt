@@ -42,6 +42,9 @@ interface StudentDao {
 
     @Delete
     suspend fun deleteStudent(student: StudentEntity)
+
+    @Query("DELETE FROM students WHERE id IN (:ids)")
+    suspend fun deleteStudentsByIds(ids: List<String>)
 }
 
 @Dao
@@ -66,6 +69,9 @@ interface GroupDao {
 
     @Delete
     suspend fun deleteGroup(group: GroupEntity)
+
+    @Query("DELETE FROM groups WHERE id IN (:ids)")
+    suspend fun deleteGroupsByIds(ids: List<String>)
 }
 
 @Dao
@@ -93,6 +99,9 @@ interface EnrollmentDao {
 
     @Query("DELETE FROM enrollments WHERE studentId = :studentId")
     suspend fun deleteEnrollmentsForStudent(studentId: String)
+
+    @Query("DELETE FROM enrollments WHERE studentId IN (:studentIds) OR groupId IN (:groupIds)")
+    suspend fun deleteEnrollmentsByDemoIds(studentIds: List<String>, groupIds: List<String>)
 }
 
 @Dao
@@ -129,6 +138,9 @@ interface SubscriptionDao {
 
     @Query("SELECT * FROM monthly_subscriptions WHERE studentId = :studentId")
     suspend fun getSubscriptionsListForStudent(studentId: String): List<MonthlySubscriptionEntity>
+
+    @Query("DELETE FROM monthly_subscriptions WHERE id IN (:subIds) OR studentId IN (:studentIds) OR groupId IN (:groupIds)")
+    suspend fun deleteSubscriptionsByDemoIds(subIds: List<String>, studentIds: List<String>, groupIds: List<String>)
 }
 
 @Dao
@@ -159,6 +171,9 @@ interface PaymentDao {
 
     @Delete
     suspend fun deletePayment(payment: PaymentEntity)
+
+    @Query("DELETE FROM payments WHERE studentId IN (:studentIds) OR groupId IN (:groupIds)")
+    suspend fun deletePaymentsByDemoIds(studentIds: List<String>, groupIds: List<String>)
 }
 
 @Dao
@@ -171,6 +186,9 @@ interface AttendanceDao {
 
     @Query("SELECT * FROM attendance_sessions WHERE id = :id LIMIT 1")
     fun getSessionById(id: String): Flow<AttendanceSessionEntity?>
+
+    @Query("SELECT * FROM attendance_sessions WHERE groupId = :groupId AND sessionDate = :sessionDate ORDER BY createdAt DESC LIMIT 1")
+    suspend fun getSessionByGroupAndDate(groupId: String, sessionDate: String): AttendanceSessionEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSession(session: AttendanceSessionEntity)
@@ -216,6 +234,12 @@ interface AttendanceDao {
 
     @Query("DELETE FROM attendance_records WHERE sessionId = :sessionId")
     suspend fun deleteRecordsForSession(sessionId: String)
+
+    @Query("DELETE FROM attendance_records WHERE sessionId IN (:sessionIds) OR studentId IN (:studentIds) OR groupId IN (:groupIds)")
+    suspend fun deleteRecordsByDemoIds(sessionIds: List<String>, studentIds: List<String>, groupIds: List<String>)
+
+    @Query("DELETE FROM attendance_sessions WHERE id IN (:sessionIds) OR groupId IN (:groupIds)")
+    suspend fun deleteSessionsByDemoIds(sessionIds: List<String>, groupIds: List<String>)
 }
 
 @Dao
@@ -228,6 +252,9 @@ interface SettingsDao {
 
     @Query("UPDATE app_settings SET teacherName = '', userRole = 'المعلم' WHERE id = 1")
     suspend fun clearTeacherAndRole()
+
+    @Query("UPDATE app_settings SET academicYear = '' WHERE id = 1 AND academicYear = '2024 - 2025'")
+    suspend fun clearLegacyAcademicYear()
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdate(settings: AppSettingsEntity)

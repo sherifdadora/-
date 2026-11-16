@@ -32,6 +32,7 @@ import kotlinx.coroutines.launch
 enum class ScreenDestination(val title: String) {
     DASHBOARD("لوحة التحكم"),
     STUDENTS("إدارة الطلاب"),
+    ADD_STUDENT("إضافة طالب جديد"),
     STUDENT_PROFILE("ملف الطالب"),
     GROUPS("المجموعات الدراسية"),
     GROUP_DETAIL("تفاصيل المجموعة"),
@@ -39,6 +40,7 @@ enum class ScreenDestination(val title: String) {
     ATTENDANCE("تسجيل الحضور والغياب"),
     ATTENDANCE_REPORTS("تقارير الحضور"),
     PAYMENTS("الاشتراكات والمدفوعات"),
+    RECORD_PAYMENT("تسجيل دفعة طالب"),
     OVERDUE("الطلاب المتأخرون بالسداد"),
     STATEMENT("كشف حساب الطالب"),
     FINANCIAL_REPORTS("التقارير المالية"),
@@ -137,14 +139,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val exists = result.any { it.studentId == studentId && it.monthYear.contains(monthName) }
                 if (!exists) {
                     val defaultFee = students.value.find { it.id == studentId }?.monthlyFee ?: 250.0
+                    val currentYear = Calendar.getInstance().get(Calendar.YEAR)
+                    val monthNum = when {
+                        monthName.contains("يناير") -> "01"
+                        monthName.contains("فبراير") -> "02"
+                        monthName.contains("مارس") -> "03"
+                        monthName.contains("أبريل") -> "04"
+                        monthName.contains("مايو") -> "05"
+                        monthName.contains("يونيو") -> "06"
+                        monthName.contains("يوليو") -> "07"
+                        monthName.contains("أغسطس") -> "08"
+                        monthName.contains("سبتمبر") -> "09"
+                        monthName.contains("أكتوبر") -> "10"
+                        monthName.contains("نوفمبر") -> "11"
+                        monthName.contains("ديسمبر") -> "12"
+                        else -> "01"
+                    }
                     result.add(
                         MonthlySubscriptionEntity(
                             id = "temp_${studentId}_$monthName",
                             studentId = studentId,
                             groupId = enrollments.value.find { it.studentId == studentId }?.groupId ?: "group_general",
-                            monthYear = "$monthName 2025",
-                            monthSortKey = "2025-01",
-                            academicYear = settings.value?.academicYear ?: "2024 - 2025",
+                            monthYear = "$monthName $currentYear",
+                            monthSortKey = "$currentYear-$monthNum",
+                            academicYear = settings.value?.academicYear.orEmpty(),
                             expectedAmount = defaultFee,
                             status = status
                         )
@@ -238,7 +256,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val enrollMap = enrollList.groupBy { it.studentId }
         val subsByStudent = subList.groupBy { it.studentId }
 
-        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         val todayCal = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, 0)
             set(Calendar.MINUTE, 0)
@@ -337,29 +355,94 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }.sortedByDescending { it.absentCount }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    private val navigationStack = mutableListOf(ScreenDestination.DASHBOARD)
+
     // Navigation methods
     fun navigateTo(destination: ScreenDestination) {
+        if (destination == _currentScreen.value) return
+        if (destination == ScreenDestination.DASHBOARD) {
+            navigationStack.clear()
+            navigationStack.add(ScreenDestination.DASHBOARD)
+            _currentScreen.value = ScreenDestination.DASHBOARD
+            return
+        }
+        if (navigationStack.lastOrNull() != destination) {
+            navigationStack.add(destination)
+        }
         _currentScreen.value = destination
+    }
+
+    fun openAddStudentScreen(fromScreen: ScreenDestination = _currentScreen.value) {
+        if (fromScreen != ScreenDestination.ADD_STUDENT && navigationStack.lastOrNull() != fromScreen) {
+            navigationStack.add(fromScreen)
+        }
+        navigateTo(ScreenDestination.ADD_STUDENT)
+    }
+
+    fun closeAddStudentScreen() {
+        navigateBack()
+    }
+
+    fun navigateBack(): Boolean {
+        if (navigationStack.size > 1) {
+            navigationStack.removeAt(navigationStack.lastIndex)
+            _currentScreen.value = navigationStack.last()
+            return true
+        }
+        if (_currentScreen.value != ScreenDestination.DASHBOARD) {
+            navigationStack.clear()
+            navigationStack.add(ScreenDestination.DASHBOARD)
+            _currentScreen.value = ScreenDestination.DASHBOARD
+            return true
+        }
+        return false
+    }
+
+    fun navigateAfterStudentAdded() {
+        if (navigationStack.lastOrNull() == ScreenDestination.ADD_STUDENT) {
+            navigationStack.removeAt(navigationStack.lastIndex)
+        }
+        if (navigationStack.lastOrNull() != ScreenDestination.STUDENTS) {
+            navigationStack.add(ScreenDestination.STUDENTS)
+        }
+        _currentScreen.value = ScreenDestination.STUDENTS
+    }
+
+    fun openRecordPaymentScreen(studentId: String? = null) {
+        if (studentId != null) {
+            _selectedStudentId.value = studentId
+        }
+        navigateTo(ScreenDestination.RECORD_PAYMENT)
+    }
+
+    fun navigateAfterPaymentRecorded() {
+        if (navigationStack.lastOrNull() == ScreenDestination.RECORD_PAYMENT) {
+            navigationStack.removeAt(navigationStack.lastIndex)
+        }
+        if (navigationStack.lastOrNull() != ScreenDestination.PAYMENTS) {
+            navigationStack.add(ScreenDestination.PAYMENTS)
+        }
+        _currentScreen.value = ScreenDestination.PAYMENTS
     }
 
     fun openStudentProfile(studentId: String) {
         _selectedStudentId.value = studentId
-        _currentScreen.value = ScreenDestination.STUDENT_PROFILE
+        navigateTo(ScreenDestination.STUDENT_PROFILE)
     }
 
     fun openStudentStatement(studentId: String) {
         _selectedStudentId.value = studentId
-        _currentScreen.value = ScreenDestination.STATEMENT
+        navigateTo(ScreenDestination.STATEMENT)
     }
 
     fun openGroupDetail(groupId: String) {
         _selectedGroupId.value = groupId
-        _currentScreen.value = ScreenDestination.GROUP_DETAIL
+        navigateTo(ScreenDestination.GROUP_DETAIL)
     }
 
     fun openAttendanceForGroup(groupId: String) {
         _selectedGroupId.value = groupId
-        _currentScreen.value = ScreenDestination.ATTENDANCE
+        navigateTo(ScreenDestination.ATTENDANCE)
     }
 
     fun setSearchQuery(query: String) {
@@ -387,7 +470,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             repository.archiveStudent(studentId, studentName)
             if (_selectedStudentId.value == studentId) {
                 _selectedStudentId.value = null
-                _currentScreen.value = ScreenDestination.STUDENTS
+                if (_currentScreen.value == ScreenDestination.STUDENT_PROFILE) {
+                    navigateBack()
+                }
             }
         }
     }
@@ -413,7 +498,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             repository.deleteGroup(groupId, groupName)
             if (_selectedGroupId.value == groupId) {
                 _selectedGroupId.value = null
-                _currentScreen.value = ScreenDestination.GROUPS
+                if (_currentScreen.value == ScreenDestination.GROUP_DETAIL) {
+                    navigateBack()
+                }
             }
         }
     }
@@ -467,7 +554,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _optimisticStatuses.value = _optimisticStatuses.value + (optKey to "مدفوع")
         viewModelScope.launch {
             try {
-                val year = settings.value?.academicYear ?: "2024 - 2025"
+                val year = settings.value?.academicYear.orEmpty()
                 repository.recordDirectStudentPayment(
                     studentId = studentId,
                     amount = amount,
@@ -532,15 +619,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun quickPayMonth(studentId: String, monthName: String) {
+    fun quickPayMonth(
+        studentId: String,
+        monthName: String,
+        groupId: String = "",
+        amount: Double? = null,
+        paymentDate: String? = null,
+        paymentMethod: String = "نقدًا",
+        notes: String? = null
+    ) {
         val existing = subscriptions.value.find { it.studentId == studentId && it.monthYear.contains(monthName) }
         val monthKey = "${studentId}__MONTH__${monthName}"
         val keys = if (existing != null) mapOf(monthKey to "مدفوع", existing.id to "مدفوع") else mapOf(monthKey to "مدفوع")
         _optimisticStatuses.value = _optimisticStatuses.value + keys
         viewModelScope.launch {
             try {
-                val year = settings.value?.academicYear ?: "2024 - 2025"
-                repository.quickPayMonthForStudent(studentId, monthName, year)
+                val year = settings.value?.academicYear.orEmpty()
+                repository.quickPayMonthForStudent(
+                    studentId = studentId,
+                    monthName = monthName,
+                    academicYear = year,
+                    groupId = groupId,
+                    amountOverride = amount,
+                    paymentDate = paymentDate,
+                    paymentMethod = paymentMethod,
+                    notes = notes
+                )
             } finally {
                 _optimisticStatuses.value = _optimisticStatuses.value - keys.keys
             }

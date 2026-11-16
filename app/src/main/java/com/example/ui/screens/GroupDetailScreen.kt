@@ -63,10 +63,9 @@ import com.example.data.model.StudentEntity
 import com.example.ui.components.WhatsAppMessageComposerDialog
 import com.example.ui.components.WhatsAppRecipientMode
 import com.example.ui.theme.EduErrorRed
-import com.example.ui.theme.EduSuccessContainer
-import com.example.ui.theme.EduSuccessGreen
-import com.example.ui.theme.EduTealPrimary
-import com.example.ui.theme.EduWarningAmber
+import com.example.ui.theme.eduErrorContentColor
+import com.example.ui.theme.eduSuccessContentColor
+import com.example.ui.theme.eduWhatsAppTextColor
 import com.example.util.WhatsAppHelper
 import com.example.util.WhatsAppMessageTemplateType
 
@@ -226,7 +225,7 @@ fun GroupDetailScreen(
                     ) {
                         Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color(0xFF25D366))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("تنسيق وإرسال رسالة جاهزة للمجموعة عبر واتساب", color = Color(0xFF075E54), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("تنسيق وإرسال رسالة جاهزة للمجموعة عبر واتساب", color = eduWhatsAppTextColor(), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -258,7 +257,7 @@ fun GroupDetailScreen(
                 ) {
                     Column(modifier = Modifier.padding(10.dp)) {
                         Text(text = "إيرادات المجموعة", fontSize = 10.sp, color = MaterialTheme.colorScheme.outline)
-                        Text(text = "${totalPaid.toInt()} $currency", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = EduSuccessGreen)
+                        Text(text = "${totalPaid.toInt()} $currency", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = eduSuccessContentColor())
                         Text(text = "مستحق: ${totalExpected.toInt()} $currency", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -273,7 +272,7 @@ fun GroupDetailScreen(
                             text = "${totalRemaining.toInt()} $currency",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (totalRemaining > 0) EduErrorRed else EduSuccessGreen
+                            color = if (totalRemaining > 0) eduErrorContentColor() else eduSuccessContentColor()
                         )
                         Text(text = "متبقي على الطلاب", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -285,7 +284,7 @@ fun GroupDetailScreen(
                 ) {
                     Column(modifier = Modifier.padding(10.dp)) {
                         Text(text = "نسبة حضور المجموعة", fontSize = 10.sp, color = MaterialTheme.colorScheme.outline)
-                        Text(text = "$attendanceRate%", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = EduTealPrimary)
+                        Text(text = "$attendanceRate%", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                         Text(text = "${groupSessions.size} حصة مسجلة", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -395,7 +394,7 @@ fun GroupDetailScreen(
                                         Text(text = s.fullName, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                         Text(text = "${s.grade} • ${s.phone}", fontSize = 10.sp, color = MaterialTheme.colorScheme.outline)
                                     }
-                                    Icon(Icons.Default.Add, contentDescription = "إضافة", tint = EduTealPrimary)
+                                    Icon(Icons.Default.Add, contentDescription = "إضافة", tint = MaterialTheme.colorScheme.primary)
                                 }
                             }
                         }
@@ -449,8 +448,7 @@ fun GroupDetailScreen(
         )
     }
 
-    if (composerStudent != null) {
-        val st = composerStudent!!
+    composerStudent?.let { st ->
         val stSubs = groupSubs.filter { it.studentId == st.id }
         val stPayments = groupPayments.filter { it.studentId == st.id }
         val stPaid = stPayments.sumOf { it.amountPaid }
